@@ -2967,6 +2967,12 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
     memset(frame, ink.page_fill, HOME_FRAME_BYTES);
     if (!cfg || !data)
         return;
+    /* Prayer math needs local civil time. SNTP may still be pending while a place is already saved. */
+    if (now <= 0 && cfg->location_ready) {
+        time_t wall = time(NULL);
+        if (wall >= 1704067200)
+            now = (int64_t)wall;
+    }
     c = (canvas_t){frame, 1, home_board_render_intensity(2), lang_of(cfg), RASTER_NOISE, RASTER_NOISE};
     rect(&c, 0, 0, W, 28, ink.bar_ink);
     draw_top_bar(&c, cfg, &js, &ink, now, battery_percent, charging, rssi);
@@ -3016,7 +3022,12 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
                 if (js.borders & QURAN_FRAME_FORECAST)
                     frame_rect(&c, x, y, w, h, 2, ink.frame);
                 hijri[0] = 0;
-                if (have_clock && salah.hy > 0) {
+                if (!cfg->location_ready) {
+                    snprintf(num, sizeof num, "--");
+                    snprintf(word_buf, sizeof word_buf, "%s",
+                             tr(c.lang, "Set a place", "Ustaw miejsce"));
+                    word = word_buf;
+                } else if (have_clock && salah.hy > 0) {
                     int days = salah.ramadan_days > 999 ? 999 : salah.ramadan_days;
                     snprintf(num, sizeof num, "%d", days < 1 ? 1 : days);
                     if (salah.in_ramadan)
@@ -3029,7 +3040,8 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
                              salah.hy);
                 } else {
                     snprintf(num, sizeof num, "--");
-                    snprintf(word_buf, sizeof word_buf, "%s", tr(c.lang, "Set a place", "Ustaw miejsce"));
+                    snprintf(word_buf, sizeof word_buf, "%s",
+                             tr(c.lang, "Waiting for time", "Czekam na czas"));
                     word = word_buf;
                 }
                 /* 30px count. The two lines sit on its right and stay inside the half box. */
@@ -3103,7 +3115,10 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
             snprintf(when, sizeof when, "%d %s", salah.holiday_day,
                      month_short(c.lang, salah.holiday_month - 1));
         snprintf(name, sizeof name, "%s",
-                 known ? salah.holiday : tr(c.lang, "Set a place", "Ustaw miejsce"));
+                 known ? salah.holiday
+                       : cfg->location_ready
+                             ? tr(c.lang, "Holiday calendar", "Kalendarz świąt")
+                             : tr(c.lang, "Set a place", "Ustaw miejsce"));
         clip_aligned(&c, 16, y + 12, 64, 16, 0, name_ink, head, 0);
         clip_aligned(&c, 84, y + 10, W - 180, 22, 1, name_ink, name, 0);
         if (when[0])
@@ -3155,21 +3170,18 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
         qurantrix_upper_box_title(title, js.upper_titles);
         snprintf(status, sizeof status, "%s / %s", tr(c.lang, "Quran", "Quran"),
                  radio ? tr(c.lang, "ON", "WŁ") : tr(c.lang, "OFF", "WYŁ"));
-        const int title_h = 14, inset = 3, foot = 4;
-        const int band_y = y + title_h + inset;
-        const int band_h = h - title_h - inset - foot;
-        int line_h, status_y;
+        const int title_h = 14, inset = 3, gap = 3, foot = 3;
+        const int band_y = y + title_h + gap;
+        const int band_h = h - title_h - gap - foot;
+        const int status_y = band_y + 1;
+        const int status_h = home_fonts[1].size + 2;
         if (radio) {
             rect(&c, x, y, w, h, ink.alert);
             section_title_bar(&c, x, y, w, ink.alert, 6, title);
         } else
             section_title_bar(&c, x, y, w, ink.accent, 6, title);
         rect(&c, x + inset, band_y, w - 2 * inset, band_h, PAPER);
-        line_h = home_fonts[1].size + 2;
-        if (line_h > band_h)
-            line_h = band_h;
-        status_y = band_y + (band_h - line_h) / 2;
-        clip_aligned(&c, x + 8, status_y, w - 16, line_h, 1, ink.body, status, 1);
+        clip_aligned(&c, x + 8, status_y, w - 16, status_h, 1, ink.body, status, 1);
         if (boxed)
             frame_rect(&c, x, y, w, h, 2, ink.frame);
     }

@@ -629,8 +629,14 @@ static esp_err_t api_inner(httpd_req_t *r)
             result = error(r, "400 Bad Request", why);
         else if (qurantrix_settings_save(&s) != ESP_OK)
             result = error(r, "503 Service Unavailable", "Desk settings not saved");
-        else
+        else {
+            home_lock();
+            home_runtime.dirty = true;
+            home_runtime.force_show = true;
+            home_runtime.request_id++;
+            home_unlock();
             result = accepted(r);
+        }
         goto done;
     }
     if ((r->method == HTTP_PUT && !strcmp(path, "/api/config")) ||
@@ -668,9 +674,15 @@ static esp_err_t api_inner(httpd_req_t *r)
             memset(&home_runtime.data.calendar, 0, sizeof(home_runtime.data.calendar));
         home_runtime.refresh_requested &= home_sources_wanted(&c);
         bool locale_changed = strcmp(c.locale, home_runtime.config.locale) != 0;
+        bool place_changed =
+            strcmp(c.location, home_runtime.config.location) != 0 ||
+            strcmp(c.timezone, home_runtime.config.timezone) != 0 ||
+            c.location_ready != home_runtime.config.location_ready ||
+            c.latitude != home_runtime.config.latitude || c.longitude != home_runtime.config.longitude ||
+            c.clock24 != home_runtime.config.clock24;
         home_runtime.config = c;
         home_runtime.request_id++; /* Save changes settings; explicit Show publishes them. */
-        if (locale_changed) {
+        if (locale_changed || place_changed) {
             home_runtime.dirty = true;
             home_runtime.force_show = true;
         }

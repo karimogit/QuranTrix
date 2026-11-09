@@ -359,7 +359,7 @@
     <div class="preview-modes" role="tablist" aria-label="Dashboard preview date">
       <button type="button" class="on" data-prev-mode="today" role="tab" aria-selected="true">Today</button>
       <button type="button" data-prev-mode="ramadan" role="tab" aria-selected="false">During Ramadan</button>
-    </div>
+        </div>
     <div class="preview upper" id="preview">
       <canvas id="prevCanvas" width="400" height="300" role="img" aria-label="Dashboard preview at 400 by 300 pixels"></canvas>
     </div>
@@ -1058,17 +1058,15 @@ function drawPaperCanvas() {
     const boxed = frameOn('bFrameRadio');
     const live = document.getElementById('prevLive');
     const on = live && /\/ ON\b/.test(live.textContent);
-    if (on) {
+  if (on) {
       pvFill(ctx, x, y, w, h, inks.alert);
       pvTitleBar(ctx, x, y, w, inks.alert, upper('Radio'), fSm);
     } else
       pvTitleBar(ctx, x, y, w, inks.accent, upper('Radio'), fSm);
-    const titleH = 14, inset = 3, foot = 4;
-    const bandY = y + titleH + inset, bandH = h - titleH - inset - foot;
-    const lineH = 14;
-    const statusY = bandY + Math.max(0, (bandH - lineH) / 2);
+    const titleH = 14, inset = 3, gap = 3, foot = 3;
+    const bandY = y + titleH + gap, bandH = h - titleH - gap - foot;
     pvFill(ctx, x + inset, bandY, w - 2 * inset, bandH, inks.paper);
-    pvClip(ctx, x + 8, statusY, w - 16, lineH, live ? live.textContent : (on ? 'Quran / ON' : 'Quran / OFF'), inks.body, fBody, 'center');
+    pvClip(ctx, x + 8, bandY + 1, w - 16, 14, live ? live.textContent : (on ? 'Quran / ON' : 'Quran / OFF'), inks.body, fBody, 'center');
     if (boxed) pvFrame(ctx, x, y, w, h, 2, inks.frame);
   }
   document.getElementById('preview').style.background = inks.paper;
@@ -1126,7 +1124,7 @@ function hijriLabel(now, tz) {
       y = +parts.find(p => p.type === 'year').value;
       m = +parts.find(p => p.type === 'month').value;
       d = +parts.find(p => p.type === 'day').value;
-    } catch (e) {}
+  } catch (e) {}
   }
   const a = Math.floor((14 - m) / 12);
   const yy = y + 4800 - a;
@@ -1503,7 +1501,7 @@ document.getElementById('wifiBtn').onclick = async () => {
 function fillPlaceResults(j) {
   const sel = document.getElementById('places');
   sel.innerHTML = '';
-  (j.results || []).forEach(p => {
+    (j.results || []).forEach(p => {
     const admin = [p.admin1, p.country].filter(Boolean).join(', ');
     sel.appendChild(makePlaceOption({
       name: p.name,
@@ -1515,7 +1513,7 @@ function fillPlaceResults(j) {
   });
   const btn = document.getElementById('offlinePlacesBtn');
   if (btn) btn.hidden = !sel.options.length;
-  if (!sel.options.length) status(t('noPlaces'), false);
+    if (!sel.options.length) status(t('noPlaces'), false);
   else {
     if (btn) btn.hidden = false;
     sel.selectedIndex = 0;
@@ -1539,7 +1537,7 @@ async function geocodeQuery(q) {
   }
 }
 async function applyPlace(p) {
-  const cfg = await api('/api/config', { headers: hdr() });
+    const cfg = await api('/api/config', { headers: hdr() });
   cfg.location = p.name;
   cfg.latitude = p.latitude;
   cfg.longitude = p.longitude;
@@ -1547,23 +1545,23 @@ async function applyPlace(p) {
   const tz = p.timezone || document.getElementById('timezone').value;
   if (tz) {
     cfg.timezone = tz;
-    const sel = document.getElementById('timezone');
+      const sel = document.getElementById('timezone');
     if (![...sel.options].some(o => o.value === tz)) {
-      const o = document.createElement('option');
+        const o = document.createElement('option');
       o.value = tz;
       o.textContent = tz;
-      sel.appendChild(o);
-    }
+        sel.appendChild(o);
+      }
     sel.value = tz;
-  }
-  cfg.clock24 = document.getElementById('clock24').value === '1';
+    }
+    cfg.clock24 = document.getElementById('clock24').value === '1';
   previewPlace = { lat: p.latitude, lon: p.longitude, ready: true, name: p.name || '' };
   document.getElementById('place').value = p.name || '';
   document.getElementById('manualLat').value = String(p.latitude);
   document.getElementById('manualLon').value = String(p.longitude);
-  await api('/api/config', { method: 'PUT', headers: hdr(), body: JSON.stringify(cfg) });
-  paint();
-  status(t('placeSaved').replace('%s', p.name), true);
+    await api('/api/config', { method: 'PUT', headers: hdr(), body: JSON.stringify(cfg) });
+    paint();
+    status(t('placeSaved').replace('%s', p.name), true);
 }
 document.getElementById('searchBtn').onclick = async () => {
   try {
@@ -1605,6 +1603,15 @@ document.getElementById('deskBtn').onclick = async () => {
     cfg.clock24 = document.getElementById('clock24').value === '1';
     const zone = document.getElementById('timezone').value;
     if (zone) cfg.timezone = zone;
+    const lat = parseFloat(document.getElementById('manualLat').value);
+    const lon = parseFloat(document.getElementById('manualLon').value);
+    const placeLabel = document.getElementById('place').value.trim();
+    if (zone && Number.isFinite(lat) && Number.isFinite(lon)) {
+      cfg.latitude = lat;
+      cfg.longitude = lon;
+      cfg.location_ready = true;
+      if (placeLabel) cfg.location = placeLabel;
+    }
     cfg.locale = 'en';
     cfg.calendar_url = document.getElementById('calendarUrl').value.trim();
     if (Array.isArray(cfg.enabled)) {
@@ -1647,7 +1654,10 @@ document.getElementById('deskBtn').onclick = async () => {
         (document.getElementById('bDua').checked ? 4 : 0) |
         (document.getElementById('bSun').checked ? 32 : 0) |
         (document.getElementById('bAsma').checked ? 64 : 0),
-      radios: readStations()
+      radios: (() => {
+        const list = readStations();
+        return list.length ? list : [{ name: 'Quran', url: 'https://qurango.net/radio/tarateel' }];
+      })()
     };
     await api('/api/desk', { method: 'PUT', headers: hdr(), body: JSON.stringify(body) });
     showSave(t('savedPaper'), true);
