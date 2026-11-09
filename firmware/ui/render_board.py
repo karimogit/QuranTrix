@@ -45,8 +45,9 @@ def clip_text(draw, xy, text, font, fill, mw):
     draw.text((x, y), s, font=font, fill=fill)
 
 
-def strike(draw, x1, x2, y, color):
-    draw.line([(x1, y), (x2, y)], fill=color, width=1)
+def salah_done(draw, x, y, w, h, color):
+    draw.line([(x + 3, y + 3), (x + w - 3, y + h - 3)], fill=color, width=2)
+    draw.line([(x + w - 3, y + 3), (x + 3, y + h - 3)], fill=color, width=2)
 
 
 def wifi(draw, x, y, color):
@@ -64,8 +65,7 @@ def salah_tile(draw, x, y, w, h, name, when, current, done, boxed, bold, reg):
     draw.text((x + w / 2, y + 4), name, font=reg, fill=ink, anchor="ma")
     draw.text((x + w / 2, y + 20), when, font=bold, fill=ink, anchor="ma")
     if done:
-        strike(draw, x + 4, x + w - 4, y + 12, ink)
-        strike(draw, x + 4, x + w - 4, y + 28, ink)
+        salah_done(draw, x, y, w, h, ink)
 
 
 def draw_board(spec):

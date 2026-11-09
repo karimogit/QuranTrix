@@ -467,10 +467,12 @@ static void line(canvas_t *c, int x0, int y0, int x1, int y1, int p)
         }
     }
 }
-static void strike_h(canvas_t *c, int x0, int x1, int y, int p)
+static void salah_done_mark(canvas_t *c, int x, int y, int w, int h, int p)
 {
-    line(c, x0, y, x1, y, p);
-    line(c, x0, y + 1, x1, y + 1, p);
+    line(c, x + 3, y + 3, x + w - 4, y + h - 4, p);
+    line(c, x + w - 4, y + 3, x + 3, y + h - 4, p);
+    line(c, x + 4, y + 3, x + w - 3, y + h - 4, p);
+    line(c, x + w - 3, y + 3, x + 3, y + h - 4, p);
 }
 static size_t bounded(const char *s, size_t cap)
 {
@@ -2949,10 +2951,8 @@ static void salah_tile(canvas_t *c, int x, int y, int w, int h, const char *name
     /* Name and time share the tile. Both are centered, so the lower half is not blank. */
     clip_aligned(c, x + 4, y + 8, w - 8, 16, 0, name_ink, name, 1);
     clip_aligned(c, x + 4, y + 28, w - 8, 22, 1, time_ink, when, 1);
-    if (done) {
-        strike_h(c, x + 8, x + w - 8, y + 15, name_ink);
-        strike_h(c, x + 8, x + w - 8, y + 37, time_ink);
-    }
+    if (done)
+        salah_done_mark(c, x, y, w, h, name_ink);
 }
 
 void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, int64_t now,

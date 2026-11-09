@@ -300,7 +300,7 @@
 
   <section>
     <div class="head"><h2 data-i18n="paperTitle">On the paper</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-paper" aria-label="Help">?</button></div>
-    <p class="helptext" id="help-paper" hidden data-i18n="helpPaper">The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and strikes through the highlighted prayer.</p>
+    <p class="helptext" id="help-paper" hidden data-i18n="helpPaper">The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and marks the highlighted prayer with an X.</p>
     <p class="hint" data-i18n="paperHint">Turn a block off. The top bar stays.</p>
     <div class="blocks">
       <label class="block"><span data-i18n="blockPrayers">Prayers</span><span class="switch"><input type="checkbox" id="bPrayers" checked><i></i></span></label>
@@ -841,12 +841,14 @@ function pvClip(ctx, x, y, w, h, text, color, font, align) {
   ctx.fillText(text, ax, y);
   ctx.restore();
 }
-function pvStrike(ctx, x1, y, x2, color) {
+function pvSalahDone(ctx, x, y, w, h, color) {
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(x1, y);
-  ctx.lineTo(x2, y);
+  ctx.moveTo(x + 3, y + 3);
+  ctx.lineTo(x + w - 3, y + h - 3);
+  ctx.moveTo(x + w - 3, y + 3);
+  ctx.lineTo(x + 3, y + h - 3);
   ctx.stroke();
 }
 function pvWifi(ctx, x, y, color) {
@@ -964,12 +966,8 @@ function drawPaperCanvas() {
       const when = fmtPrayer(salah.valid ? salah.minute[i] : -1, clock24);
       pvClip(ctx, x + 4, y + 8, tile - 8, 16, upper(SALAH_NAMES[i]), nameInk, fSm, 'center');
       pvClip(ctx, x + 4, y + 28, tile - 8, 20, when, timeInk, '600 13px system-ui', 'center');
-      if (done) {
-        pvStrike(ctx, x + 8, y + 15, x + tile - 8, nameInk);
-        pvStrike(ctx, x + 8, y + 16, x + tile - 8, nameInk);
-        pvStrike(ctx, x + 8, y + 37, x + tile - 8, timeInk);
-        pvStrike(ctx, x + 8, y + 38, x + tile - 8, timeInk);
-      }
+      if (done)
+        pvSalahDone(ctx, x, y, tile, h, nameInk);
       x += tile + gap;
     }
   }
@@ -1105,7 +1103,7 @@ function paintStations() {
 function setStations(rows) {
   const list = document.getElementById('stations');
   const defaults = [
-    { name: 'Quran', url: 'https://qurango.net/radio/tarateel' }
+    { name: 'Tarateel', url: 'https://qurango.net/radio/tarateel' }
   ];
   list.replaceChildren();
   (rows === undefined ? defaults : rows).slice(0, RADIO_MAX).forEach(r => list.appendChild(stationRow(r.name, r.url)));
@@ -1658,7 +1656,7 @@ document.getElementById('deskBtn').onclick = async () => {
         (document.getElementById('bAsma').checked ? 64 : 0),
       radios: (() => {
         const list = readStations();
-        return list.length ? list : [{ name: 'Quran', url: 'https://qurango.net/radio/tarateel' }];
+        return list.length ? list : [{ name: 'Tarateel', url: 'https://qurango.net/radio/tarateel' }];
       })()
     };
     await api('/api/desk', { method: 'PUT', headers: hdr(), body: JSON.stringify(body) });
@@ -1680,7 +1678,7 @@ const I18N = {
     helpPair: 'Hold the round button about two seconds. The paper shows six digits for about five minutes. Join QuranTrix-Setup and type the code here. Pairing on that network clears older phones and keeps this one. Up to four phones can be paired from your home network later.',
     helpWifi: 'The home network. After you save, the password stays on the device. This page does not keep it.',
     helpPlace: 'Prayer times use this place and its time zone. Search asks the desk first when it is on your home Wi‑Fi with internet, otherwise your phone. With no internet, pick a city from the built-in list or enter coordinates manually.',
-    helpPaper: 'The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and strikes through the highlighted prayer.',
+    helpPaper: 'The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and marks the highlighted prayer with an X.',
     helpTop: 'Weekday, date, time, place, Wi-Fi, and battery. Up moves an item toward the left. The clock follows the time zone. Choosing a place fills the zone in.',
     helpLook: 'Themes, texture, uppercase titles, and dark paper. Dark paper swaps black and paper. The sketch above matches the paper.',
     helpBorders: 'A frame around the prayers, the Ramadan count, sun times, the holiday, the dua, or the radio.',

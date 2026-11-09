@@ -10,6 +10,7 @@
 #include "esp_crt_bundle.h"
 #include "esp_heap_caps.h"
 #include "esp_http_client.h"
+#include "esp_tls.h"
 #include "esp_log.h"
 #include "esp_pm.h"
 #include "esp_timer.h"
@@ -333,6 +334,7 @@ static void mix_click(int16_t *s, int frames)
 static uint8_t *mp3_ring;
 static int mp3_r, mp3_w;
 static int stream_fd = -1;
+static esp_tls_t *stream_tls;
 static volatile bool speaker_stalled;
 static volatile bool speaker_open;
 static TaskHandle_t net_task;
@@ -390,9 +392,17 @@ static void mp3_reset(void)
     __atomic_store_n(&mp3_r, 0, __ATOMIC_RELEASE);
     __atomic_store_n(&mp3_w, 0, __ATOMIC_RELEASE);
 }
+static bool stream_live(void)
+{
+    return stream_fd >= 0 || stream_tls != NULL;
+}
 static void net_stop(void)
 {
     net_run = false;
+    if (stream_tls) {
+        esp_tls_conn_destroy(stream_tls);
+        stream_tls = NULL;
+    }
     if (stream_fd >= 0) {
         shutdown(stream_fd, SHUT_RD);
         close(stream_fd);
@@ -498,7 +508,7 @@ static bool icy_feed(esp_http_client_handle_t client, const uint8_t *data, int l
     uint8_t chunk[1024];
     const uint8_t *mem = data;
     int mem_left = len;
-    while (off < len && radio_run && (client || stream_fd >= 0)) {
+    while (off < len && radio_run && (client || stream_live())) {
         if (icy_metaint <= 0) {
             if (!mp3_push(data + off, len - off))
                 return false;
@@ -526,10 +536,22 @@ static bool icy_feed(esp_http_client_handle_t client, const uint8_t *data, int l
     }
     return true;
 }
+static bool tls_want(ssize_t n)
+{
+    return n == ESP_TLS_ERR_SSL_WANT_READ || n == ESP_TLS_ERR_SSL_WANT_WRITE;
+}
 static int net_read(esp_http_client_handle_t client, void *dst, int max)
 {
     if (max <= 0)
         return 0;
+    if (stream_tls) {
+        ssize_t n = esp_tls_conn_read(stream_tls, dst, (size_t)max);
+        if (n > 0)
+            return (int)n;
+        if (n == 0)
+            return -1;
+        return tls_want(n) ? 0 : -1;
+    }
     if (stream_fd >= 0) {
         int n = recv(stream_fd, dst, max, 0);
         if (n > 0)
@@ -608,6 +630,29 @@ static int header_find(const char *hdr, int len, const char *key, char *out, int
     }
     return 0;
 }
+static bool split_https(const char *url, char *host, size_t hostcap, char *path, size_t pathcap)
+{
+    if (strncmp(url, "https://", 8) != 0)
+        return false;
+    const char *p = url + 8;
+    const char *slash = strchr(p, '/');
+    const char *colon = NULL;
+    for (const char *s = p; slash ? s < slash : *s; ++s)
+        if (*s == ':')
+            colon = s;
+    if (colon)
+        return false;
+    size_t hlen = slash ? (size_t)(slash - p) : strlen(p);
+    if (hlen == 0 || hlen >= hostcap)
+        return false;
+    memcpy(host, p, hlen);
+    host[hlen] = 0;
+    if (!slash || !slash[0])
+        snprintf(path, pathcap, "/");
+    else
+        snprintf(path, pathcap, "%s", slash);
+    return true;
+}
 static bool split_http(const char *url, char *host, size_t hostcap, int *port, char *path,
                        size_t pathcap)
 {
@@ -659,6 +704,138 @@ static int tcp_open(const char *host, int port)
 /* Icecast sends the music with no content length. The HTTP client treats that as
  * chunked encoding and pulls the song apart. A plain socket keeps the bytes in order
  * and still strips the station-name labels. */
+static int open_plain(const char *url, uint8_t *prefetch, int cap, int *got);
+static int tls_read_hdr(esp_tls_t *tls, char *hdr, int cap)
+{
+    int hlen = 0, spins = 0;
+    while (hlen < cap - 1 && radio_run) {
+        ssize_t n = esp_tls_conn_read(tls, hdr + hlen, (size_t)(cap - 1 - hlen));
+        if (n > 0) {
+            hlen += (int)n;
+            hdr[hlen] = 0;
+            if (strstr(hdr, "\r\n\r\n"))
+                return hlen;
+            spins = 0;
+            continue;
+        }
+        if (n == 0)
+            return -1;
+        if (tls_want(n) && ++spins <= 40) {
+            vTaskDelay(pdMS_TO_TICKS(5));
+            continue;
+        }
+        return -1;
+    }
+    return -1;
+}
+static bool open_https(const char *url, uint8_t *prefetch, int cap, int *got)
+{
+    char current[160];
+    snprintf(current, sizeof current, "%s", url);
+    *got = 0;
+    for (int hop = 0; hop < 3 && radio_run; ++hop) {
+        char host[96], path[128], req[384], hdr[1536], value[160];
+        if (!split_https(current, host, sizeof host, path, sizeof path))
+            return false;
+        stream_tls = esp_tls_init();
+        if (!stream_tls)
+            return false;
+        esp_tls_cfg_t cfg = {.crt_bundle_attach = esp_crt_bundle_attach, .timeout_ms = 15000};
+        int conn = esp_tls_conn_new_sync(host, (int)strlen(host), 443, &cfg, stream_tls);
+        if (conn != 1) {
+            ESP_LOGW(TAG, "TLS open failed for %s", host);
+            esp_tls_conn_destroy(stream_tls);
+            stream_tls = NULL;
+            return false;
+        }
+        int reqn = snprintf(req, sizeof req,
+                            "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: %s\r\n"
+                            "Icy-MetaData: 1\r\nConnection: close\r\n\r\n",
+                            path, host, QURANTRIX_HTTP_UA);
+        if (reqn <= 0 || reqn >= (int)sizeof req) {
+            esp_tls_conn_destroy(stream_tls);
+            stream_tls = NULL;
+            return false;
+        }
+        size_t sent = 0;
+        int spins = 0;
+        while (sent < (size_t)reqn && radio_run) {
+            ssize_t n = esp_tls_conn_write(stream_tls, req + sent, (size_t)reqn - sent);
+            if (n > 0) {
+                sent += (size_t)n;
+                spins = 0;
+                continue;
+            }
+            if (tls_want(n) && ++spins <= 40) {
+                vTaskDelay(pdMS_TO_TICKS(5));
+                continue;
+            }
+            esp_tls_conn_destroy(stream_tls);
+            stream_tls = NULL;
+            return false;
+        }
+        int hlen = tls_read_hdr(stream_tls, hdr, (int)sizeof hdr);
+        if (hlen < 0) {
+            esp_tls_conn_destroy(stream_tls);
+            stream_tls = NULL;
+            return false;
+        }
+        int mark = -1;
+        char *sep = strstr(hdr, "\r\n\r\n");
+        if (sep)
+            mark = (int)(sep - hdr) + 4;
+        if (mark < 0) {
+            esp_tls_conn_destroy(stream_tls);
+            stream_tls = NULL;
+            return false;
+        }
+        int status = 0;
+        if (!strncmp(hdr, "ICY ", 4) || !strncmp(hdr, "HTTP/", 5)) {
+            const char *sp = strchr(hdr, ' ');
+            if (sp)
+                status = atoi(sp + 1);
+        }
+        if ((status == 301 || status == 302 || status == 307) &&
+            header_find(hdr, mark, "Location", value, sizeof value)) {
+            esp_tls_conn_destroy(stream_tls);
+            stream_tls = NULL;
+            if (!strncmp(value, "https://", 8)) {
+                snprintf(current, sizeof current, "%s", value);
+                continue;
+            }
+            if (!strncmp(value, "http://", 7)) {
+                stream_fd = open_plain(value, prefetch, cap, got);
+                return stream_fd >= 0;
+            }
+            return false;
+        }
+        if (status != 200) {
+            ESP_LOGW(TAG, "Stream %s status %d", current, status);
+            esp_tls_conn_destroy(stream_tls);
+            stream_tls = NULL;
+            return false;
+        }
+        icy_metaint = 0;
+        if (header_find(hdr, mark, "icy-metaint", value, sizeof value)) {
+            int v = atoi(value);
+            if (v >= 256 && v <= 65536)
+                icy_metaint = v;
+        }
+        icy_reset();
+        if (icy_metaint > 0)
+            ESP_LOGI(TAG, "Removing station labels every %d bytes", icy_metaint);
+        int left = hlen - mark;
+        if (left > cap)
+            left = cap;
+        if (left > 0) {
+            memcpy(prefetch, hdr + mark, (size_t)left);
+            *got = left;
+        } else
+            *got = 0;
+        return true;
+    }
+    return false;
+}
 static int open_plain(const char *url, uint8_t *prefetch, int cap, int *got)
 {
     char current[160];
@@ -749,6 +926,7 @@ static int open_plain(const char *url, uint8_t *prefetch, int cap, int *got)
 static bool play_url(const char *url, mp3dec_t *dec)
 {
     icy_metaint = 0;
+    stream_tls = NULL;
     stream_fd = -1;
     speaker_stalled = false;
     esp_http_client_handle_t client = NULL;
@@ -767,9 +945,17 @@ static bool play_url(const char *url, mp3dec_t *dec)
         free(pcm_stereo);
         return false;
     }
-    if (!strncmp(url, "http://", 7))
+    bool direct = false;
+    if (!strncmp(url, "http://", 7)) {
         stream_fd = open_plain(url, in, 16 * 1024, &prefetch);
-    if (stream_fd < 0) {
+        direct = stream_fd >= 0;
+    } else if (!strncmp(url, "https://", 8))
+        direct = open_https(url, in, 16 * 1024, &prefetch);
+    if (!direct) {
+        if (stream_tls) {
+            esp_tls_conn_destroy(stream_tls);
+            stream_tls = NULL;
+        }
         stream_fd = -1;
         esp_http_client_config_t cfg = {
             .url = url,

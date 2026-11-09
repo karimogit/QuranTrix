@@ -21,7 +21,7 @@ static void defaults(qurantrix_settings_t *s)
     snprintf(s->nfc_label, sizeof s->nfc_label, "SALAH");
     s->brush = 0;
     s->radio_count = 1;
-    snprintf(s->radio_name[0], sizeof s->radio_name[0], "Quran");
+    snprintf(s->radio_name[0], sizeof s->radio_name[0], "Tarateel");
     snprintf(s->radio_url[0], sizeof s->radio_url[0], "https://qurango.net/radio/tarateel");
     s->dark_mode = false;
     s->unit_suffix = true;
@@ -430,7 +430,7 @@ void qurantrix_settings_init(void)
             w++;
         }
         if (!w) {
-            snprintf(cached.radio_name[0], sizeof cached.radio_name[0], "Quran");
+            snprintf(cached.radio_name[0], sizeof cached.radio_name[0], "Tarateel");
             snprintf(cached.radio_url[0], sizeof cached.radio_url[0],
                      "https://qurango.net/radio/tarateel");
             w = 1;
@@ -513,7 +513,7 @@ const char *qurantrix_radio_name(int i)
         return "RADIO";
     if (cached.radio_count > 0 && i < cached.radio_count && cached.radio_name[i][0])
         return cached.radio_name[i];
-    return i == 0 ? "Quran" : "RADIO";
+    return i == 0 ? "Tarateel" : "RADIO";
 }
 const char *qurantrix_radio_url(int i)
 {
@@ -703,7 +703,7 @@ bool qurantrix_settings_decode(const char *json, size_t len, qurantrix_settings_
         }
     }
     if (!s.radio_count) {
-        snprintf(s.radio_name[0], sizeof s.radio_name[0], "Quran");
+        snprintf(s.radio_name[0], sizeof s.radio_name[0], "Tarateel");
         snprintf(s.radio_url[0], sizeof s.radio_url[0], "%s", default_radio_url);
         s.radio_count = 1;
     }
