@@ -2778,6 +2778,36 @@ typedef struct {
     int w;
     char text[68];
 } bar_slot_t;
+/* Toolbar: city only (before comma), not the long offline label. */
+static void bar_place_label(char *out, size_t len, const home_config_t *cfg, int lang)
+{
+    const char *src;
+    size_t n, i;
+    if (!out || len < 2 || !cfg) {
+        if (out && len)
+            out[0] = 0;
+        return;
+    }
+    if (!cfg->location_ready || !cfg->location[0]) {
+        snprintf(out, len, "%s", tr(lang, "Your place", "Twoje miejsce"));
+        return;
+    }
+    src = cfg->location;
+    n = strnlen(src, sizeof cfg->location);
+    for (i = 0; i < n; i++) {
+        if (src[i] == ',')
+            break;
+    }
+    if (!i)
+        i = n;
+    if (i >= len)
+        i = len - 1;
+    memcpy(out, src, i);
+    out[i] = 0;
+    while (i > 0 && (out[i - 1] == ' ' || out[i - 1] == '\t')) {
+        out[--i] = 0;
+    }
+}
 static void shrink_bar(bar_slot_t *slot, int n, int over)
 {
     const uint8_t order[] = {QURAN_TB_PLACE, QURAN_TB_WEEKDAY, QURAN_TB_DATE, QURAN_TB_CLOCK,
@@ -2815,7 +2845,7 @@ static void draw_top_bar(canvas_t *c, const home_config_t *cfg, const qurantrix_
     else
         snprintf(batt, sizeof batt, "—");
     char place[65];
-    snprintf(place, sizeof place, "%s", cfg->location[0] ? cfg->location : "Your place");
+    bar_place_label(place, sizeof place, cfg, c->lang);
     bar_slot_t slot[QURANTRIX_BAR_SLOTS];
     int n = 0;
     for (int s = 0; s < QURANTRIX_BAR_SLOTS; s++) {
@@ -3125,13 +3155,21 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
         qurantrix_upper_box_title(title, js.upper_titles);
         snprintf(status, sizeof status, "%s / %s", tr(c.lang, "Quran", "Quran"),
                  radio ? tr(c.lang, "ON", "WŁ") : tr(c.lang, "OFF", "WYŁ"));
+        const int title_h = 14, inset = 3, foot = 4;
+        const int band_y = y + title_h + inset;
+        const int band_h = h - title_h - inset - foot;
+        int line_h, status_y;
         if (radio) {
             rect(&c, x, y, w, h, ink.alert);
             section_title_bar(&c, x, y, w, ink.alert, 6, title);
         } else
             section_title_bar(&c, x, y, w, ink.accent, 6, title);
-        rect(&c, x + 3, y + 17, w - 6, h - 20, PAPER);
-        clip_aligned(&c, x + 8, y + 19, w - 16, h - 22, 1, ink.body, status, 1);
+        rect(&c, x + inset, band_y, w - 2 * inset, band_h, PAPER);
+        line_h = home_fonts[1].size + 2;
+        if (line_h > band_h)
+            line_h = band_h;
+        status_y = band_y + (band_h - line_h) / 2;
+        clip_aligned(&c, x + 8, status_y, w - 16, line_h, 1, ink.body, status, 1);
         if (boxed)
             frame_rect(&c, x, y, w, h, 2, ink.frame);
     }

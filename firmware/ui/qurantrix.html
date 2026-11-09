@@ -854,6 +854,12 @@ function pvWifi(ctx, x, y, color) {
     pvFill(ctx, x + i * 6, y + (3 - i) * 3, 4, 4 + i * 3, color);
   }
 }
+function placeBarLabel(name) {
+  if (!name) return '';
+  const i = name.indexOf(',');
+  const short = (i > 0 ? name.slice(0, i) : name).trim();
+  return short;
+}
 function previewBarSlots(tz) {
   const clock24 = document.getElementById('clock24').value === '1';
   const dateFmt = document.getElementById('dateFormat').value;
@@ -878,7 +884,9 @@ function previewBarSlots(tz) {
       : day + ' ' + mon;
     tm = piece({ hour: '2-digit', minute: '2-digit', hourCycle: clock24 ? 'h23' : 'h12' });
   } catch (e) {}
-  const place = previewPlace.name || document.getElementById('place').value.trim() || 'Your place';
+  const placeRaw = (previewPlace.ready && previewPlace.name) ? previewPlace.name
+    : (document.getElementById('place').value.trim() || previewPlace.name || '');
+  const place = placeBarLabel(placeRaw) || 'Your place';
   const vis = (id) => document.getElementById(['tbPlace', 'tbClock', 'tbWifi', 'tbBatt', 'tbDate', 'tbWeekday'][id])?.checked;
   const order = parseOrder(document.getElementById('toolbarOrder').value);
   const map = { 0: place, 1: tm, 2: '\u25ae\u25ae\u25ae', 3: '80%', 4: dt, 5: wd };
@@ -1055,8 +1063,12 @@ function drawPaperCanvas() {
       pvTitleBar(ctx, x, y, w, inks.alert, upper('Radio'), fSm);
     } else
       pvTitleBar(ctx, x, y, w, inks.accent, upper('Radio'), fSm);
-    pvFill(ctx, x + 3, y + 17, w - 6, h - 20, inks.paper);
-    pvClip(ctx, x + 8, y + 19, w - 16, h - 22, live ? live.textContent : (on ? 'Quran / ON' : 'Quran / OFF'), inks.body, fBody, 'center');
+    const titleH = 14, inset = 3, foot = 4;
+    const bandY = y + titleH + inset, bandH = h - titleH - inset - foot;
+    const lineH = 14;
+    const statusY = bandY + Math.max(0, (bandH - lineH) / 2);
+    pvFill(ctx, x + inset, bandY, w - 2 * inset, bandH, inks.paper);
+    pvClip(ctx, x + 8, statusY, w - 16, lineH, live ? live.textContent : (on ? 'Quran / ON' : 'Quran / OFF'), inks.body, fBody, 'center');
     if (boxed) pvFrame(ctx, x, y, w, h, 2, inks.frame);
   }
   document.getElementById('preview').style.background = inks.paper;
@@ -1335,6 +1347,7 @@ document.querySelectorAll('button.help').forEach(btn => {
 });
 document.querySelector('.blocks').addEventListener('change', paint);
 document.getElementById('timezone').addEventListener('change', paint);
+document.getElementById('place').addEventListener('input', paint);
 document.getElementById('stations').addEventListener('click', ev => {
   const list = document.getElementById('stations');
   const row = ev.target.closest('.station');
@@ -1546,6 +1559,7 @@ async function applyPlace(p) {
   }
   cfg.clock24 = document.getElementById('clock24').value === '1';
   previewPlace = { lat: p.latitude, lon: p.longitude, ready: true, name: p.name || '' };
+  document.getElementById('place').value = p.name || '';
   document.getElementById('manualLat').value = String(p.latitude);
   document.getElementById('manualLon').value = String(p.longitude);
   await api('/api/config', { method: 'PUT', headers: hdr(), body: JSON.stringify(cfg) });
