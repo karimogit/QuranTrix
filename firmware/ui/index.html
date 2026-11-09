@@ -919,19 +919,19 @@ function drawPaperCanvas() {
     const pickDay = new Date(civil.y, civil.m - 1, civil.d);
     if (duaOn) {
       const x = 8, w = asmaOn ? half : band;
-      if (frameOn('bFrameDua')) pvFrame(ctx, x, y, w, h, 2, inks.frame);
       const dua = duaForDay(pickDay);
       pvTitleBar(ctx, x, y, w, inks.accent, upper('Dua'), fSm);
       pvClip(ctx, x + 8, y + 18, w - 16, 16, dua[0], inks.body, fSm);
       pvClip(ctx, x + 8, y + 34, w - 16, 14, dua[1], inkOnPaper(inks.accent), '600 10px system-ui');
+      if (frameOn('bFrameDua')) pvFrame(ctx, x, y, w, h, 2, inks.frame);
     }
     if (asmaOn) {
       const x = duaOn ? 8 + half + 4 : 8, w = duaOn ? half : band;
-      if (frameOn('bFrameAsma')) pvFrame(ctx, x, y, w, h, 2, inks.frame);
       const name = asmaForDay(pickDay);
       pvTitleBar(ctx, x, y, w, inks.accent, upper('99 Names'), fSm);
       pvClip(ctx, x + 8, y + 18, w - 16, 16, name[0], inks.body, fSm);
       pvClip(ctx, x + 8, y + 34, w - 16, 14, name[1], inkOnPaper(inks.accent), '600 10px system-ui');
+      if (frameOn('bFrameAsma')) pvFrame(ctx, x, y, w, h, 2, inks.frame);
     }
   }
   if (blockOn('bRadio')) {
@@ -945,10 +945,10 @@ function drawPaperCanvas() {
       pvFill(ctx, x + 3, y + 17, w - 6, h - 20, inks.paper);
       pvClip(ctx, x + 8, y + 18, w - 16, 16, live ? live.textContent : 'Quran / ON', inks.body, fBody, 'center');
     } else {
-      if (boxed) pvFrame(ctx, x, y, w, h, 2, inks.frame);
       pvTitleBar(ctx, x, y, w, inks.accent, upper('Radio'), fSm);
       pvClip(ctx, x + 8, y + 18, w - 16, 16, live ? live.textContent : 'Quran / OFF', inks.body, fBody, 'center');
     }
+    if (boxed) pvFrame(ctx, x, y, w, h, 2, inks.frame);
   }
   document.getElementById('preview').style.background = inks.paper;
 }

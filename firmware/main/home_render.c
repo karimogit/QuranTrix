@@ -3092,28 +3092,28 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
                 int w = asma_on ? half : band;
                 const home_dua_t *dua = home_dua_for_yday(have_clock ? local.tm_yday : 0);
                 char title[12];
-                if (js.borders & QURAN_FRAME_BREW)
-                    frame_rect(&c, x, y, w, h, 2, ink.frame);
                 snprintf(title, sizeof title, "%s", tr(c.lang, "Dua", "Dua"));
                 qurantrix_upper_box_title(title, js.upper_titles);
                 section_title_bar(&c, x, y, w, ink.accent, 6, title);
                 clip_aligned(&c, x + 8, y + 18, w - 16, 16, 0, ink.body, dua->words, 0);
                 clip_aligned(&c, x + 8, y + 34, w - 16, 14, 6, ink_on_paper(ink.accent), dua->meaning,
                              0);
+                if (js.borders & QURAN_FRAME_BREW)
+                    frame_rect(&c, x, y, w, h, 2, ink.frame);
             }
             if (asma_on) {
                 int x = dua_on ? 8 + half + 4 : 8;
                 int w = dua_on ? half : band;
                 const home_dua_t *name = home_asma_for_yday(have_clock ? local.tm_yday : 0);
                 char title[12];
-                if (js.borders & QURAN_FRAME_SKY)
-                    frame_rect(&c, x, y, w, h, 2, ink.frame);
                 snprintf(title, sizeof title, "%s", tr(c.lang, "99 Names", "99 Names"));
                 qurantrix_upper_box_title(title, js.upper_titles);
                 section_title_bar(&c, x, y, w, ink.accent, 6, title);
                 clip_aligned(&c, x + 8, y + 18, w - 16, 16, 0, ink.body, name->words, 0);
                 clip_aligned(&c, x + 8, y + 34, w - 16, 14, 6, ink_on_paper(ink.accent),
                              name->meaning, 0);
+                if (js.borders & QURAN_FRAME_SKY)
+                    frame_rect(&c, x, y, w, h, 2, ink.frame);
             }
         }
     }
@@ -3131,11 +3131,11 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
             rect(&c, x + 3, y + 17, w - 6, h - 20, PAPER);
             clip_aligned(&c, x + 8, y + 18, w - 16, 16, 1, ink.body, status, 0);
         } else {
-            if (boxed)
-                frame_rect(&c, x, y, w, h, 2, ink.frame);
             section_title_bar(&c, x, y, w, ink.accent, 6, title);
             clip_aligned(&c, x + 8, y + 18, w - 16, 16, 1, ink.body, status, 0);
         }
+        if (boxed)
+            frame_rect(&c, x, y, w, h, 2, ink.frame);
     }
 }
 void home_render(const home_config_t *cfg, const home_data_t *data, home_screen_t screen,
