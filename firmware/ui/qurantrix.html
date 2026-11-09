@@ -406,7 +406,7 @@
   <section>
     <div class="head"><h2 data-i18n="radioTitle">Radio</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-radio" aria-label="Help">?</button></div>
     <p class="helptext" id="help-radio" hidden data-i18n="helpRadio">The stations the round button plays. One tap turns the radio on or off. A short press of Up or Down changes the volume. Hold one for about two seconds to change station. If the first stream does not open, the next one plays.</p>
-    <p class="hint" data-i18n="radioHint">Quran is the live broadcast. Qurango plays if that stream does not open.</p>
+    <p class="hint" data-i18n="radioHint">Default station: Qurango Tarateel.</p>
     <div id="stations"></div>
     <button type="button" class="ghost" id="addStation" data-i18n="addStation">Add a station</button>
   </section>
@@ -1105,8 +1105,7 @@ function paintStations() {
 function setStations(rows) {
   const list = document.getElementById('stations');
   const defaults = [
-    { name: 'Quran', url: 'https://qurango.net/radio/mix' },
-    { name: 'Qurango', url: 'https://qurango.net/radio/tarateel' }
+    { name: 'Quran', url: 'https://qurango.net/radio/tarateel' }
   ];
   list.replaceChildren();
   (rows === undefined ? defaults : rows).slice(0, RADIO_MAX).forEach(r => list.appendChild(stationRow(r.name, r.url)));
@@ -1694,7 +1693,7 @@ const I18N = {
     bar: 'Bar', accent: 'Accent', alert: 'Alert', high: 'High', low: 'Low',
     texture: 'Texture', noise: 'Noise', dots: 'Dots', grid: 'Grid', upperTitles: 'Uppercase box titles', darkPaper: 'Dark paper',
     borders: 'Borders', borderForecast: 'Forecast', borderDegrees: 'Degrees', borderSky: 'Sky line', borderTiles: 'Weather tiles', borderRadio: 'Radio',
-    radioTitle: 'Radio', radioHint: 'Quran is the live broadcast. Qurango plays if that stream does not open.', addStation: 'Add a station', saveChanges: 'Save changes',
+    radioTitle: 'Radio', radioHint: 'Default station: Qurango Tarateel.', addStation: 'Add a station', saveChanges: 'Save changes',
     remove: 'Remove', name: 'Name', address: 'Address',
     paired: 'Paired. The desk is yours.', loaded: 'Settings loaded.', wifiSaved: 'Wi‑Fi saved on the device.',
     typePlace: 'Type a place first.', noPlaces: 'No places found.', placesCount: '%n places.',

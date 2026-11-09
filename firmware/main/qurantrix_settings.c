@@ -20,12 +20,9 @@ static void defaults(qurantrix_settings_t *s)
     s->struct_size = (uint16_t)sizeof *s;
     snprintf(s->nfc_label, sizeof s->nfc_label, "SALAH");
     s->brush = 0;
-    s->radio_count = 2;
-    /* Quran is the live broadcast. Qurango is what plays when that stream does not open. */
+    s->radio_count = 1;
     snprintf(s->radio_name[0], sizeof s->radio_name[0], "Quran");
-    snprintf(s->radio_url[0], sizeof s->radio_url[0], "https://qurango.net/radio/mix");
-    snprintf(s->radio_name[1], sizeof s->radio_name[1], "Qurango");
-    snprintf(s->radio_url[1], sizeof s->radio_url[1], "https://qurango.net/radio/tarateel");
+    snprintf(s->radio_url[0], sizeof s->radio_url[0], "https://qurango.net/radio/tarateel");
     s->dark_mode = false;
     s->unit_suffix = true;
     s->wind_unit = 0;
@@ -406,7 +403,39 @@ void qurantrix_settings_init(void)
             snprintf(cached.radio_name[i], sizeof cached.radio_name[i], "Quran");
         if (strcmp(cached.radio_url[i], "http://stream.radiojar.com/8s5u5tpdtwzuv") == 0 ||
             strcmp(cached.radio_url[i], "https://stream.radiojar.com/8s5u5tpdtwzuv") == 0)
-            snprintf(cached.radio_url[i], sizeof cached.radio_url[i], "https://qurango.net/radio/mix");
+            snprintf(cached.radio_url[i], sizeof cached.radio_url[i],
+                     "https://qurango.net/radio/tarateel");
+        if (strstr(cached.radio_url[i], "qurango.net/radio/mix") != NULL)
+            snprintf(cached.radio_url[i], sizeof cached.radio_url[i],
+                     "https://qurango.net/radio/tarateel");
+    }
+    {
+        int w = 0;
+        for (int i = 0; i < cached.radio_count && i < QURANTRIX_RADIO_MAX; i++) {
+            bool dup = false;
+            for (int j = 0; j < w; j++)
+                if (!strcasecmp(cached.radio_url[i], cached.radio_url[j])) {
+                    dup = true;
+                    break;
+                }
+            if (dup)
+                continue;
+            if (w != i) {
+                char name[24], url[128];
+                snprintf(name, sizeof name, "%s", cached.radio_name[i]);
+                snprintf(url, sizeof url, "%s", cached.radio_url[i]);
+                snprintf(cached.radio_name[w], sizeof cached.radio_name[w], "%s", name);
+                snprintf(cached.radio_url[w], sizeof cached.radio_url[w], "%s", url);
+            }
+            w++;
+        }
+        if (!w) {
+            snprintf(cached.radio_name[0], sizeof cached.radio_name[0], "Quran");
+            snprintf(cached.radio_url[0], sizeof cached.radio_url[0],
+                     "https://qurango.net/radio/tarateel");
+            w = 1;
+        }
+        cached.radio_count = (uint8_t)w;
     }
     qurantrix_settings_apply_config();
 }

@@ -58,7 +58,7 @@ An NFC tap checks off the prayer that is current. A chime plays, and that prayer
 - **Holiday:** the next Islamic holiday. Today is filled, and a holiday within two weeks uses the accent. The line follows a public Muslim holidays calendar (Google’s Islamic holiday agenda, or another https iCal address). Until that calendar arrives, the paper uses its built-in dates.
 - **Dua of the day:** a short transliteration and its meaning, in Latin letters. It shares one row with the 99 Names. Both change with the local date (31 duas, 99 names).
 - **99 Names:** one of the names each day, with its meaning, beside the dua.
-- **Radio:** the line reads Quran with ON or OFF. The default Quran station is Qurango’s main mix (`https://qurango.net/radio/mix`). Tarateel plays if that stream does not open.
+- **Radio:** the line reads Quran with ON or OFF. The default station is Qurango Tarateel (`https://qurango.net/radio/tarateel`).
 - **Blocks:** prayers, Ramadan, sun times, the holiday, the dua, the 99 Names, and the radio can each be turned off. The top bar stays.
 - **Borders:** a frame can sit around the prayers, the Ramadan count, sun times, the holiday, the dua, the 99 Names, or the radio.
 - **Language:** the page and the paper are in English. A saved language from an earlier version is read as English. The pairing page is titled Setup, and the page is titled Settings once the phone is paired. The page shows v1.0 at the bottom. The paper shows v1.0 in the pairing bar, next to the word Setup.
