@@ -1,0 +1,1605 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QuranTrix — Setup</title>
+<link rel="icon" id="favicon" href="data:,">
+<style>
+  :root {
+    --ink: #1b140f;
+    --paper: #f6f0e4;
+    --card: #fffaf2;
+    --red: #d4533a;
+    --gold: #e2b340;
+    --sea: #2c6d72;
+    --line: #e4d8c4;
+    --muted: #7a6b5c;
+    --shadow: 0 16px 40px rgba(40, 22, 8, .08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background:
+      radial-gradient(900px 420px at 100% -10%, rgba(226, 179, 64, .35), transparent 60%),
+      radial-gradient(700px 380px at -10% 20%, rgba(212, 83, 58, .18), transparent 55%),
+      var(--paper);
+    font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.4;
+  }
+  header {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 1.85rem 1.35rem 1.55rem;
+  }
+  .wrap { max-width: 32rem; margin: 0 auto; }
+  h1 {
+    font-family: "Iowan Old Style", Palatino, Georgia, serif;
+    font-weight: 600;
+    font-size: 3rem;
+    line-height: .9;
+    margin: 0;
+    letter-spacing: -.03em;
+  }
+  h1 span { font-size: .42em; font-weight: 600; letter-spacing: .01em; white-space: nowrap; margin-left: .35em; }
+  header { text-align: center; }
+  header p { margin-left: auto; margin-right: auto; }
+  header a { color: var(--gold); }
+  .mark { display: block; margin: 0 auto .2rem; font-size: 2.75rem; line-height: 1; }
+  main { padding: 1.2rem 1.35rem 9rem; }
+  body.locked main { padding-bottom: 4.5rem; }
+  body.locked #settings, body.locked #deskBtn { display: none; }
+  body:not(.locked) #gate { display: none; }
+  section {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 1.15rem 1.15rem 1.25rem;
+    margin: 0 auto 1.05rem;
+    max-width: 32rem;
+    box-shadow: var(--shadow);
+  }
+  h2 {
+    font-family: "Iowan Old Style", Palatino, Georgia, serif;
+    font-size: 1.35rem;
+    margin: 0;
+  }
+  .head { display: flex; align-items: flex-start; justify-content: space-between; gap: .65rem; margin: 0 0 .15rem; }
+  .head.later { margin-top: 1.15rem; }
+  button.help {
+    flex: none;
+    width: 1.7rem;
+    height: 1.7rem;
+    margin-top: .05rem;
+    border: 1.5px solid var(--ink);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ink);
+    font: 700 1rem/1 Georgia, "Iowan Old Style", serif;
+    cursor: pointer;
+  }
+  button.help.on { background: var(--ink); color: var(--paper); }
+  .helptext {
+    margin: .35rem 0 .85rem;
+    padding: .75rem .85rem;
+    background: #f3eadc;
+    border-radius: 12px;
+    font-size: .9rem;
+  }
+  .hint { color: var(--muted); margin: 0 0 .85rem; font-size: .9rem; }
+  header p { margin: .7rem auto 0; color: #e7dccb; max-width: 22rem; }
+  .savebar .ver { margin: .7rem 0 0; text-align: center; letter-spacing: .16em; font-size: .75rem; font-weight: 700; color: var(--muted); }
+  label.field { display: flex; flex-direction: column; align-items: stretch; margin-top: .75rem; font-size: .82rem; font-weight: 650; }
+  input[type="text"], input[type="password"], input[type="search"], select.plain, textarea {
+    width: 100%;
+    margin-top: .3rem;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    border-radius: 12px;
+    padding: .7rem .8rem;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 550;
+    line-height: 1.35;
+  }
+  textarea { min-height: 4.2rem; resize: vertical; }
+  ::placeholder { color: #b5a594; font-weight: 500; }
+  #pair {
+    font-size: 1.8rem;
+    letter-spacing: .35em;
+    text-align: center;
+    font-weight: 700;
+    padding: .85rem;
+  }
+  .station {
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 14px;
+    padding: .75rem .8rem .9rem;
+    margin-top: .7rem;
+  }
+  .station-top { display: flex; align-items: center; gap: .4rem; }
+  .station-top b { flex: 1; font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .station label.field { margin-top: .45rem; }
+  .drop {
+    border: 0; background: transparent; color: var(--red); font: inherit; font-weight: 700; cursor: pointer; padding: .2rem .15rem;
+  }
+  #addStation:disabled { opacity: .4; }
+  button.action, button.ghost {
+    width: 100%;
+    margin-top: .75rem;
+    border: 0;
+    border-radius: 999px;
+    padding: .75rem 1rem;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  button.action { background: var(--ink); color: var(--paper); }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  button.action:active { transform: translateY(1px); }
+  .status {
+    max-width: 32rem;
+    margin: 0 auto .85rem;
+    min-height: 1.2rem;
+    font-weight: 650;
+  }
+  .status.ok { color: var(--sea); }
+  .status.err { color: var(--red); }
+  .seg, .themes, .pigs { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .35rem; }
+  .seg { margin-bottom: 1.35rem; }
+  .seg button, .themes button, .pigs button, .brush button {
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 999px;
+    padding: .45rem .75rem;
+    font: inherit;
+    font-weight: 650;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  .seg button.on, .themes button.on, .brush button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .themes { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .themes button { border-radius: 14px; text-align: left; padding: .65rem .7rem; }
+  .themes button strong { display: block; font-family: "Iowan Old Style", Palatino, Georgia, serif; font-size: 1.05rem; }
+  .themes button span { display: block; color: var(--muted); font-size: .75rem; font-weight: 500; }
+  .themes button.on span { color: #e7dccb; }
+  .swatch { width: 1.7rem; height: 1.7rem; border-radius: 50%; padding: 0; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); }
+  .swatch.on { box-shadow: 0 0 0 2px var(--ink); }
+  .k0 { background: #1b140f; } .k1 { background: #f3efe4; } .k2 { background: #e2b340; } .k3 { background: #d4533a; }
+  .line {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .45rem 0;
+    border-top: 1px solid var(--line);
+  }
+  .line:first-child { border-top: 0; }
+  .nudge {
+    width: 2rem; height: 2rem; border-radius: 10px;
+    border: 1px solid var(--line); background: #fff; font: inherit; cursor: pointer;
+  }
+  .line b { flex: 1; font-weight: 650; }
+  .switch { position: relative; width: 2.7rem; height: 1.55rem; cursor: pointer; }
+  .switch input { opacity: 0; position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 1; }
+  .switch i {
+    position: absolute; inset: 0; background: #ddd2c2; border-radius: 999px;
+  }
+  .switch i:before {
+    content: ""; position: absolute; width: 1.15rem; height: 1.15rem; left: .2rem; top: .2rem;
+    background: #fff; border-radius: 50%; transition: transform .15s ease;
+  }
+  .switch input:checked + i { background: var(--red); }
+  .switch input:checked + i:before { transform: translateX(1.15rem); }
+  .blocks { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .block {
+    display: flex; align-items: center; justify-content: space-between;
+    border: 1px solid var(--line); border-radius: 14px; padding: .65rem .7rem; background: #fff;
+  }
+  .preview {
+    border-radius: 16px; overflow: hidden; border: 1px solid var(--line); background: #f3efe4; margin-bottom: .5rem;
+  }
+  #prevCanvas { display: block; width: 100%; height: auto; aspect-ratio: 400 / 300; image-rendering: pixelated; image-rendering: crisp-edges; }
+  .preview-modes { display: flex; gap: .4rem; margin-bottom: .8rem; flex-wrap: wrap; }
+  .preview-modes button {
+    border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: .4rem .75rem;
+    font: inherit; font-weight: 650; cursor: pointer; color: var(--ink);
+  }
+  .preview-modes button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  #customColors.off { display: none; }
+  .pig-row { margin-top: .55rem; }
+  .pig-row span { display: block; font-size: .78rem; font-weight: 700; margin-bottom: .25rem; }
+  select.places { width: 100%; margin-top: .5rem; border-radius: 12px; border: 1px solid var(--line); background: #fff; min-height: 6.5rem; font: inherit; padding: .3rem; }
+  .savebar {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    padding: .8rem 1.35rem calc(.85rem + env(safe-area-inset-bottom));
+    background: rgba(246, 240, 228, .94);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--line);
+  }
+  .savebar button { max-width: 32rem; margin: 0 auto; display: block; background: var(--red); }
+  .savebar button:disabled { opacity: .65; }
+  .savebar .note {
+    max-width: 32rem;
+    margin: 0 auto .6rem;
+    text-align: center;
+    font-weight: 750;
+    font-size: .95rem;
+    color: var(--ink);
+  }
+  .savebar .note.ok { color: var(--sea); }
+  .savebar .note.err { color: var(--red); }
+</style>
+</head>
+<body class="locked">
+<header>
+  <div class="wrap">
+    <h1>☪️ QuranTrix <span id="pageWord">Setup</span></h1>
+    <p id="blurb">A dashboard for Quran radio, prayer times, Islamic holidays, Ramadan schedules, Dua of the Day, and a daily reminder featuring one of the 99 Names of Allah.</p>
+  </div>
+</header>
+<main>
+  <div id="status" class="status" role="status"></div>
+
+  <section id="gate">
+    <div class="head"><h2 data-i18n="pairTitle">Pair this phone</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-pair" aria-label="Help">?</button></div>
+    <p class="helptext" id="help-pair" hidden data-i18n="helpPair">Double-tap the round button. The paper shows six digits for about five minutes. Join QuranTrix-Setup and type the code here.</p>
+    <p class="hint" data-i18n="pairHint">Type the six digits on the display.</p>
+    <label class="field"><span data-i18n="pairCode">Pairing code</span>
+      <input id="pair" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••">
+    </label>
+    <button type="button" class="action" id="pairBtn" data-i18n="pairBtn">Pair</button>
+  </section>
+
+  <div id="settings">
+  <section>
+    <div class="head"><h2 data-i18n="wifiTitle">Wi‑Fi</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-wifi" aria-label="Help">?</button></div>
+    <p class="helptext" id="help-wifi" hidden data-i18n="helpWifi">The home network. After you save, the password stays on the device. This page does not keep it.</p>
+    <p class="hint" data-i18n="wifiHint">The home network. The password stays on the device.</p>
+    <label class="field"><span data-i18n="network">Network name</span><input id="wifiSsid" type="text" autocomplete="off"></label>
+    <label class="field"><span data-i18n="password">Password</span><input id="wifiPass" type="password" autocomplete="off"></label>
+    <button type="button" class="action" id="wifiBtn" data-i18n="saveWifi">Save Wi‑Fi</button>
+  </section>
+
+  <section>
+    <div class="head"><h2 data-i18n="placeTitle">Place</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-place" aria-label="Help">?</button></div>
+    <p class="helptext" id="help-place" hidden data-i18n="helpPlace">Prayer times use this place and its time zone. The method sets Fajr and Isha. Asr follows the Shafi or Hanafi school. The holiday line follows the calendar below, and the built-in dates until that calendar arrives.</p>
+    <p class="hint" data-i18n="placeHint">Search for the place on the paper. Prayer times follow it.</p>
+    <label class="field"><span data-i18n="place">Place</span><input id="place" type="search" placeholder="Amsterdam, Lisbon, Kyoto…"></label>
+    <button type="button" class="ghost" id="searchBtn" data-i18n="searchPlaces">Search places</button>
+    <select id="places" class="places" size="4"></select>
+    <button type="button" class="action" id="locBtn" data-i18n="usePlace">Use this place</button>
+    <p class="hint" data-i18n="manualPlaceHint">No internet? Set time zone under Top bar, enter latitude and longitude here, then save.</p>
+    <div class="manual-place">
+      <label class="field"><span data-i18n="latitude">Latitude</span><input id="manualLat" type="text" inputmode="decimal" placeholder="52.3676" autocomplete="off"></label>
+      <label class="field"><span data-i18n="longitude">Longitude</span><input id="manualLon" type="text" inputmode="decimal" placeholder="4.9041" autocomplete="off"></label>
+      <button type="button" class="ghost" id="manualPlaceBtn" data-i18n="saveCoords">Save coordinates</button>
+    </div>
+    <label class="field"><span data-i18n="salahMethod">Prayer method</span>
+      <select id="salahMethod" class="plain">
+        <option value="0">Muslim World League</option>
+        <option value="1">ISNA</option>
+        <option value="2">Egyptian</option>
+        <option value="3">Umm al-Qura, Makkah</option>
+        <option value="4">University of Karachi</option>
+      </select>
+    </label>
+    <label class="field"><span data-i18n="asrSchool">Asr</span>
+      <select id="asrMadhab" hidden><option value="0">Shafi</option><option value="1">Hanafi</option></select>
+      <div class="seg" data-for="asrMadhab"><button type="button" data-v="0">Shafi</button><button type="button" data-v="1">Hanafi</button></div>
+    </label>
+    <label class="field"><span data-i18n="holidayCal">Holiday calendar</span>
+      <textarea id="calendarUrl" rows="3" maxlength="512" spellcheck="false"></textarea>
+    </label>
+    <p class="hint" data-i18n="holidayHint">A public Muslim holidays calendar. Paste another iCal address to use that agenda instead.</p>
+  </section>
+
+  <section>
+    <div class="head"><h2 data-i18n="paperTitle">On the paper</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-paper" aria-label="Help">?</button></div>
+    <p class="helptext" id="help-paper" hidden data-i18n="helpPaper">The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and strikes through the highlighted prayer.</p>
+    <p class="hint" data-i18n="paperHint">Turn a block off. The top bar stays.</p>
+    <div class="blocks">
+      <label class="block"><span data-i18n="blockPrayers">Prayers</span><span class="switch"><input type="checkbox" id="bPrayers" checked><i></i></span></label>
+      <label class="block"><span data-i18n="blockRamadan">Ramadan</span><span class="switch"><input type="checkbox" id="bRamadan" checked><i></i></span></label>
+      <label class="block"><span data-i18n="blockSun">Sun times</span><span class="switch"><input type="checkbox" id="bSun" checked><i></i></span></label>
+      <label class="block"><span data-i18n="blockHoliday">Holiday</span><span class="switch"><input type="checkbox" id="bHoliday" checked><i></i></span></label>
+      <label class="block"><span data-i18n="blockDua">Dua</span><span class="switch"><input type="checkbox" id="bDua" checked><i></i></span></label>
+      <label class="block"><span data-i18n="blockAsma">99 Names</span><span class="switch"><input type="checkbox" id="bAsma" checked><i></i></span></label>
+      <label class="block"><span data-i18n="blockRadio">Radio</span><span class="switch"><input type="checkbox" id="bRadio" checked><i></i></span></label>
+    </div>
+    <input id="footOrder" type="hidden" value="0,1,2">
+    <input id="metricOrder" type="hidden" value="0,1,2,3,4">
+    <div class="head later"><h2 data-i18n="topTitle">Top bar</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-top" aria-label="Help">?</button></div>
+    <p class="helptext" id="help-top" hidden data-i18n="helpTop">Weekday, date, time, place, Wi-Fi, and battery. Up moves an item toward the left. The clock follows the time zone. Choosing a place fills the zone in.</p>
+    <p class="hint" data-i18n="topHint">Weekday, date, and time follow the time zone. Choosing a place fills the zone in. Up moves a row toward the left of the screen.</p>
+    <label class="field"><span data-i18n="timezone">Time zone</span>
+      <select id="timezone" class="plain"></select>
+    </label>
+    <label class="field"><span data-i18n="time">Time</span>
+      <select id="clock24" hidden><option value="1">24 h</option><option value="0">12 h</option></select>
+      <div class="seg" data-for="clock24"><button type="button" data-v="1">24 h</button><button type="button" data-v="0">12 h</button></div>
+    </label>
+    <label class="field"><span data-i18n="date">Date</span>
+      <select id="dateFormat" hidden>
+        <option value="0">9 Nov</option><option value="1">Nov 9</option><option value="2">09/11</option><option value="3">11/09</option><option value="4">2026-11-09</option><option value="5">28 Jumada I 1448</option>
+      </select>
+      <div class="seg" data-for="dateFormat"><button type="button" data-v="0">9 Nov</button><button type="button" data-v="1">Nov 9</button><button type="button" data-v="2">09/11</button><button type="button" data-v="3">11/09</button><button type="button" data-v="4">2026-11-09</button><button type="button" data-v="5">28 Jumada I</button></div>
+    </label>
+    <label class="field"><span data-i18n="weekday">Weekday</span>
+      <select id="weekdayStyle" hidden><option value="0">Mon</option><option value="1">Monday</option></select>
+      <div class="seg" data-for="weekdayStyle"><button type="button" data-v="0">Mon</button><button type="button" data-v="1">Monday</button></div>
+    </label>
+    <input id="toolbarOrder" type="hidden" value="5,4,1,0,2,3">
+    <div id="toolbarList">
+      <div class="line" data-id="5"><button type="button" class="nudge" data-dir="-1" aria-label="Move weekday up">↑</button><button type="button" class="nudge" data-dir="1" aria-label="Move weekday down">↓</button><b data-i18n="tbWeekday">Weekday</b><span class="switch"><input type="checkbox" id="tbWeekday" checked><i></i></span></div>
+      <div class="line" data-id="4"><button type="button" class="nudge" data-dir="-1" aria-label="Move date up">↑</button><button type="button" class="nudge" data-dir="1" aria-label="Move date down">↓</button><b data-i18n="tbDate">Date</b><span class="switch"><input type="checkbox" id="tbDate" checked><i></i></span></div>
+      <div class="line" data-id="1"><button type="button" class="nudge" data-dir="-1" aria-label="Move time up">↑</button><button type="button" class="nudge" data-dir="1" aria-label="Move time down">↓</button><b data-i18n="tbTime">Time</b><span class="switch"><input type="checkbox" id="tbClock" checked><i></i></span></div>
+      <div class="line" data-id="0"><button type="button" class="nudge" data-dir="-1" aria-label="Move place up">↑</button><button type="button" class="nudge" data-dir="1" aria-label="Move place down">↓</button><b data-i18n="tbPlace">Place</b><span class="switch"><input type="checkbox" id="tbPlace" checked><i></i></span></div>
+      <div class="line" data-id="2"><button type="button" class="nudge" data-dir="-1" aria-label="Move Wi-Fi up">↑</button><button type="button" class="nudge" data-dir="1" aria-label="Move Wi-Fi down">↓</button><b data-i18n="tbWifi">Wi‑Fi</b><span class="switch"><input type="checkbox" id="tbWifi" checked><i></i></span></div>
+      <div class="line" data-id="3"><button type="button" class="nudge" data-dir="-1" aria-label="Move battery up">↑</button><button type="button" class="nudge" data-dir="1" aria-label="Move battery down">↓</button><b data-i18n="tbBattery">Battery</b><span class="switch"><input type="checkbox" id="tbBatt" checked><i></i></span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><h2 data-i18n="lookTitle">Look</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-look" aria-label="Help">?</button></div>
+    <p class="helptext" id="help-look" hidden data-i18n="helpLook">Themes, texture, uppercase titles, and dark paper. Dark paper swaps black and paper. The sketch above matches the paper.</p>
+    <p class="hint" data-i18n="lookHint">The paper prints four pigments: black, paper, yellow, and red.</p>
+    <label class="field"><span data-i18n="panelModel">E-paper model</span>
+      <select id="panelModel" class="plain">
+        <option value="0">Auto (NOTE4C)</option>
+        <option value="1">NOTE4C colour</option>
+        <option value="2">NOTE4 black &amp; white</option>
+      </select>
+    </label>
+    <p class="hint" data-i18n="panelHint">Auto cannot tell the hardware apart. Choose NOTE4 on the monochrome NOTE4.</p>
+    <div class="preview-modes" role="tablist" aria-label="Dashboard preview date">
+      <button type="button" class="on" data-prev-mode="today" role="tab" aria-selected="true">Today</button>
+      <button type="button" data-prev-mode="ramadan" role="tab" aria-selected="false">During Ramadan</button>
+    </div>
+    <div class="preview upper" id="preview">
+      <canvas id="prevCanvas" width="400" height="300" role="img" aria-label="Dashboard preview at 400 by 300 pixels"></canvas>
+    </div>
+    <select id="themePreset" hidden>
+      <option value="0">Classic</option><option value="1">Sunset</option><option value="2">Ocean</option><option value="3">Custom pigments</option>
+      <option value="4">Marquee</option><option value="5">Chorus</option><option value="6">Brass</option><option value="7">Spotlight</option>
+    </select>
+    <div class="themes">
+      <button type="button" class="theme" data-theme="0"><strong data-i18n="classic">Classic</strong><span data-i18n="classicHint">Ink bar, gold clock</span></button>
+      <button type="button" class="theme" data-theme="1"><strong data-i18n="sunset">Sunset</strong><span data-i18n="sunsetHint">Red bar, gold clock</span></button>
+      <button type="button" class="theme" data-theme="2"><strong data-i18n="ocean">Ocean</strong><span data-i18n="oceanHint">Ink bar, gold high</span></button>
+      <button type="button" class="theme" data-theme="4"><strong data-i18n="marquee">Marquee</strong><span data-i18n="marqueeHint">Gold bar, red clock</span></button>
+      <button type="button" class="theme" data-theme="5"><strong data-i18n="chorus">Chorus</strong><span data-i18n="chorusHint">Red clock, red marks</span></button>
+      <button type="button" class="theme" data-theme="6"><strong data-i18n="brass">Brass</strong><span data-i18n="brassHint">Gold bar, black type</span></button>
+      <button type="button" class="theme" data-theme="7"><strong data-i18n="spotlight">Spotlight</strong><span data-i18n="spotlightHint">Red bar, gold frames</span></button>
+      <button type="button" class="theme" data-theme="3"><strong data-i18n="custom">Custom</strong><span data-i18n="customHint">Pick each pigment</span></button>
+    </div>
+    <div id="customColors">
+      <div class="pig-row"><span data-i18n="bar">Bar</span><input id="colorBar" type="hidden" value="0"><div class="pigs" data-for="colorBar"></div></div>
+      <div class="pig-row"><span data-i18n="accent">Accent</span><input id="colorAccent" type="hidden" value="2"><div class="pigs" data-for="colorAccent"></div></div>
+      <div class="pig-row"><span data-i18n="alert">Alert</span><input id="colorAlert" type="hidden" value="3"><div class="pigs" data-for="colorAlert"></div></div>
+      <div class="pig-row"><span data-i18n="high">High</span><input id="colorHi" type="hidden" value="3"><div class="pigs" data-for="colorHi"></div></div>
+      <div class="pig-row"><span data-i18n="low">Low</span><input id="colorLo" type="hidden" value="0"><div class="pigs" data-for="colorLo"></div></div>
+    </div>
+    <label class="field"><span data-i18n="texture">Texture</span>
+      <select id="brush" hidden><option value="0">Noise</option><option value="1">Dots</option><option value="2">Grid</option></select>
+      <div class="seg" data-for="brush"><button type="button" data-v="0" data-i18n="noise">Noise</button><button type="button" data-v="1" data-i18n="dots">Dots</button><button type="button" data-v="2" data-i18n="grid">Grid</button></div>
+    </label>
+    <label class="line"><b data-i18n="upperTitles">Uppercase box titles</b><span class="switch"><input type="checkbox" id="upperTitles" checked><i></i></span></label>
+    <label class="line"><b data-i18n="darkPaper">Dark paper</b><span class="switch"><input type="checkbox" id="darkMode"><i></i></span></label>
+    <div class="head later"><h2 data-i18n="borders">Borders</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-borders" aria-label="Help">?</button></div>
+    <p class="helptext" id="help-borders" hidden data-i18n="helpBorders">A frame around the prayers, the Ramadan count, sun times, the holiday, the dua, or the radio.</p>
+    <div id="frameList">
+      <label class="line"><b data-i18n="borderPrayers">Prayers</b><span class="switch"><input type="checkbox" id="bFramePrayers" checked><i></i></span></label>
+      <label class="line"><b data-i18n="borderRamadan">Ramadan</b><span class="switch"><input type="checkbox" id="bFrameRamadan" checked><i></i></span></label>
+      <label class="line"><b data-i18n="borderSun">Sun times</b><span class="switch"><input type="checkbox" id="bFrameSun" checked><i></i></span></label>
+      <label class="line"><b data-i18n="borderHoliday">Holiday</b><span class="switch"><input type="checkbox" id="bFrameHoliday" checked><i></i></span></label>
+      <label class="line"><b data-i18n="borderDua">Dua</b><span class="switch"><input type="checkbox" id="bFrameDua" checked><i></i></span></label>
+      <label class="line"><b data-i18n="borderAsma">99 Names</b><span class="switch"><input type="checkbox" id="bFrameAsma" checked><i></i></span></label>
+      <label class="line"><b data-i18n="borderRadio">Radio</b><span class="switch"><input type="checkbox" id="bFrameRadio" checked><i></i></span></label>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><h2 data-i18n="radioTitle">Radio</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-radio" aria-label="Help">?</button></div>
+    <p class="helptext" id="help-radio" hidden data-i18n="helpRadio">The stations the round button plays. One tap turns the radio on or off. A short press of Up or Down changes the volume. Hold one for about two seconds to change station. If the first stream does not open, the next one plays.</p>
+    <p class="hint" data-i18n="radioHint">Quran is the live broadcast. Qurango plays if that stream does not open.</p>
+    <div id="stations"></div>
+    <button type="button" class="ghost" id="addStation" data-i18n="addStation">Add a station</button>
+  </section>
+  </div>
+</main>
+<div class="savebar">
+  <p id="saveNote" class="note" hidden></p>
+  <button type="button" class="action" id="deskBtn" data-i18n="saveChanges">Save changes</button>
+  <p class="ver">v1.0</p>
+</div>
+<script>
+(function () {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 64;
+  const pen = canvas.getContext('2d');
+  pen.font = '54px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+  pen.textAlign = 'center';
+  pen.textBaseline = 'middle';
+  pen.fillText('☪️', 32, 36);
+  const icon = document.getElementById('favicon');
+  if (icon) icon.href = canvas.toDataURL('image/png');
+})();
+const status = (msg, ok) => { const el = document.getElementById('status'); el.textContent = msg; el.className = 'status' + (ok ? ' ok' : ok === false ? ' err' : ''); };
+function showSave(message, ok) {
+  status(message, ok);
+  const note = document.getElementById('saveNote');
+  note.hidden = !message;
+  note.textContent = message || '';
+  note.className = 'note' + (ok ? ' ok' : ok === false ? ' err' : '');
+}
+let token = localStorage.getItem('qurantrixToken') || '';
+const DEFAULT_CAL = 'https://calendar.google.com/calendar/ical/en.islamic%23holiday%40group.v.calendar.google.com/public/basic.ics';
+const hdr = () => token ? { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+async function api(path, opts = {}) {
+  const r = await fetch(path, opts);
+  const j = r.headers.get('content-type')?.includes('json') ? await r.json() : null;
+  if (!r.ok) {
+    const err = new Error(j?.error || r.statusText);
+    err.status = r.status;
+    throw err;
+  }
+  return j;
+}
+const parseOrder = (s) => String(s || '').split(',').map(x => parseInt(x.trim(), 10)).filter(x => !isNaN(x));
+const visBits = (ids, checks) => ids.reduce((m, id, i) => m | (document.getElementById(checks[i]).checked ? (1 << id) : 0), 0);
+const INK = ['#1b140f', '#f3efe4', '#e2b340', '#d4533a'];
+function gate() {
+  document.body.classList.toggle('locked', !token);
+  if (typeof applyLang === 'function') applyLang();
+}
+function paintSegs() {
+  document.querySelectorAll('.seg').forEach(seg => {
+    const v = document.getElementById(seg.dataset.for).value;
+    seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  });
+}
+function paintOrder(listId, inputId) {
+  const list = document.getElementById(listId);
+  parseOrder(document.getElementById(inputId).value).forEach(id => {
+    const el = list.querySelector('[data-id="' + id + '"]');
+    if (el) list.appendChild(el);
+  });
+}
+function writeOrder(list) {
+  const ids = { toolbarList: 'toolbarOrder', metricList: 'metricOrder', footList: 'footOrder' };
+  const input = document.getElementById(ids[list.id]);
+  input.value = [...list.querySelectorAll('.line')].map(el => el.dataset.id).join(',');
+}
+const THEMES = {
+  '0': { bar: 0, clock: 2, frame: 0, hi: 3, accent: 2, alert: 3 },
+  '1': { bar: 3, clock: 2, frame: 3, hi: 3, accent: 2, alert: 3 },
+  '2': { bar: 0, clock: 2, frame: 0, hi: 2, accent: 2, alert: 3 },
+  '4': { bar: 2, clock: 3, frame: 3, hi: 3, accent: 2, alert: 3 },
+  '5': { bar: 0, clock: 3, frame: 3, hi: 3, accent: 3, alert: 3 },
+  '6': { bar: 2, clock: 0, frame: 2, hi: 3, accent: 2, alert: 3 },
+  '7': { bar: 3, clock: 2, frame: 2, hi: 2, accent: 2, alert: 3 }
+};
+let previewMode = 'today';
+let previewPlace = { lat: 52.3676, lon: 4.9041, ready: false, name: '' };
+const HIJRI_MONTHS = ['Muharram', 'Safar', 'Rabi I', 'Rabi II', 'Jumada I', 'Jumada II', 'Rajab', 'Shaban', 'Ramadan', 'Shawwal', 'Dhul Qidah', 'Dhul Hijjah'];
+const SALAH_NAMES = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+const BUILT_IN_HOLIDAYS = [
+  [1, 1, 'Islamic New Year'], [1, 10, 'Ashura'], [3, 12, 'Mawlid'], [7, 27, 'Isra and Mi\'raj'],
+  [8, 15, 'Mid-Shaban'], [9, 27, 'Laylat al-Qadr'], [10, 1, 'Eid al-Fitr'], [12, 9, 'Day of Arafah'], [12, 10, 'Eid al-Adha']
+];
+function civilJd(y, m, d) {
+  const a = Math.floor((14 - m) / 12);
+  const yy = y + 4800 - a;
+  const mm = m + 12 * a - 3;
+  return d + Math.floor((153 * mm + 2) / 5) + 365 * yy + Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) - 32045;
+}
+function jdHijri(jd) {
+  let l = jd - 1948440 + 10632;
+  const n = Math.floor((l - 1) / 10631);
+  l = l - 10631 * n + 354;
+  const j = Math.floor((10985 - l) / 5316) * Math.floor((50 * l) / 17719) + Math.floor(l / 5670) * Math.floor((43 * l) / 15238);
+  l = l - Math.floor((30 - j) / 15) * Math.floor((17719 * j) / 50) - Math.floor(j / 16) * Math.floor((15238 * j) / 43) + 29;
+  const hm = Math.floor((24 * l) / 709);
+  const hd = l - Math.floor((709 * hm) / 24);
+  const hy = 30 * n + j - 30;
+  return { hy, hm, hd };
+}
+function hijriJd(hy, hm, hd) {
+  return Math.floor((11 * hy + 3) / 30) + 354 * hy + 30 * hm - Math.floor((hm - 1) / 2) + hd + 1948440 - 385;
+}
+function jdGregorian(jd) {
+  const a = jd + 32044;
+  const b = Math.floor((4 * a + 3) / 146097);
+  const c = a - Math.floor((146097 * b) / 4);
+  const e = Math.floor((4 * c + 3) / 1461);
+  const f = c - Math.floor((1461 * e) / 4);
+  const g = Math.floor((5 * f + 2) / 153);
+  const d = f - Math.floor((153 * g + 2) / 5) + 1;
+  const m = g + 3 - 12 * Math.floor(g / 10);
+  const y = 100 * b + e - 4800 + Math.floor(g / 10);
+  return { y, m, d };
+}
+function localCivilNow(tz) {
+  const now = new Date();
+  let y = now.getFullYear(), m = now.getMonth() + 1, d = now.getDate(), hr = now.getHours(), mi = now.getMinutes();
+  if (tz) {
+    try {
+      const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(now);
+      y = +p.find(x => x.type === 'year').value;
+      m = +p.find(x => x.type === 'month').value;
+      d = +p.find(x => x.type === 'day').value;
+      hr = +p.find(x => x.type === 'hour').value;
+      mi = +p.find(x => x.type === 'minute').value;
+    } catch (e) {}
+  }
+  const yday = Math.floor((Date.UTC(y, m - 1, d) - Date.UTC(y, 0, 1)) / 86400000);
+  return { y, m, d, hr, mi, now_m: hr * 60 + mi, yday, date: new Date(y, m - 1, d, hr, mi) };
+}
+function fillCalendar(y, m, d) {
+  const today = civilJd(y, m, d);
+  const { hy, hm, hd } = jdHijri(today);
+  let inRamadan = false;
+  let ramadanDays = 1;
+  if (hm === 9) {
+    inRamadan = true;
+    ramadanDays = hijriJd(hy, 10, 1) - today;
+  } else if (hm < 9) ramadanDays = hijriJd(hy, 9, 1) - today;
+  else ramadanDays = hijriJd(hy + 1, 9, 1) - today;
+  if (ramadanDays < 1) ramadanDays = 1;
+  let best = 1e6, bestName = '', bestGm = 0, bestGd = 0;
+  for (let year = 0; year < 2; year++) {
+    for (const [hmm, hdd, name] of BUILT_IN_HOLIDAYS) {
+      const jd = hijriJd(hy + year, hmm, hdd);
+      const delta = jd - today;
+      if (delta >= 0 && delta < best) {
+        best = delta;
+        bestName = name;
+        const g = jdGregorian(jd);
+        bestGm = g.m;
+        bestGd = g.d;
+      }
+    }
+  }
+  return { hy, hm, hd, inRamadan, ramadanDays, holiday: bestName, holidayDays: best < 1e6 ? best : -1, holidayMonth: bestGm, holidayDay: bestGd };
+}
+function ramadanPreviewCivil(tz) {
+  const loc = localCivilNow(tz);
+  const today = civilJd(loc.y, loc.m, loc.d);
+  const { hy, hm } = jdHijri(today);
+  if (hm === 9) return { y: loc.y, m: loc.m, d: loc.d, hr: loc.hr, mi: loc.mi, now_m: loc.now_m, yday: loc.yday };
+  const hy2 = hm > 9 ? hy + 1 : hy;
+  const g = jdGregorian(hijriJd(hy2, 9, 15));
+  const yday = Math.floor((Date.UTC(g.y, g.m - 1, g.d) - Date.UTC(g.y, 0, 1)) / 86400000);
+  return { y: g.y, m: g.m, d: g.d, hr: 13, mi: 40, now_m: 13 * 60 + 40, yday };
+}
+function wrap24(a) { a %= 24; return a < 0 ? a + 24 : a; }
+function wrap360(a) { a %= 360; return a < 0 ? a + 360 : a; }
+function minuteOf(h) {
+  if (!Number.isFinite(h)) return -1;
+  h = wrap24(h);
+  let m = Math.round(h * 60);
+  if (m >= 1440) m -= 1440;
+  if (m < 0) m += 1440;
+  return m;
+}
+function julian(y, m, d) {
+  if (m <= 2) { y -= 1; m += 12; }
+  const a = Math.floor(y / 100);
+  const b = 2 - a + Math.floor(a / 4);
+  return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + b - 1524.5;
+}
+function sunPosition(jd) {
+  const day = jd - 2451545;
+  const g = wrap360(357.529 + 0.98560028 * day);
+  const q = wrap360(280.459 + 0.98564736 * day);
+  const L = wrap360(q + 1.915 * Math.sin(g * Math.PI / 180) + 0.02 * Math.sin(2 * g * Math.PI / 180));
+  const e = 23.439 - 0.00000036 * day;
+  let ra = Math.atan2(Math.cos(e * Math.PI / 180) * Math.sin(L * Math.PI / 180), Math.cos(L * Math.PI / 180)) * 180 / Math.PI;
+  ra = wrap360(ra) / 15;
+  let eqt = q / 15 - ra;
+  if (eqt > 12) eqt -= 24;
+  if (eqt < -12) eqt += 24;
+  const decl = Math.asin(Math.sin(e * Math.PI / 180) * Math.sin(L * Math.PI / 180)) * 180 / Math.PI;
+  return { decl, eqt };
+}
+function hourAngle(angle, lat, decl) {
+  const num = -Math.sin(angle * Math.PI / 180) - Math.sin(lat * Math.PI / 180) * Math.sin(decl * Math.PI / 180);
+  const den = Math.cos(lat * Math.PI / 180) * Math.cos(decl * Math.PI / 180);
+  if (Math.abs(den) < 1e-9) return NaN;
+  const cosH = num / den;
+  if (cosH < -1 || cosH > 1) return NaN;
+  return Math.acos(cosH) * 180 / Math.PI / 15;
+}
+function tzOffsetHours(tz) {
+  if (!tz) return -(new Date().getTimezoneOffset() / 60);
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(new Date());
+    const v = parts.find(p => p.type === 'timeZoneName')?.value || '';
+    const m = v.match(/GMT([+-]?\d+(?:\.\d+)?)/) || v.match(/([+-]\d+)/);
+    if (m) return parseFloat(m[1]);
+  } catch (e) {}
+  return 0;
+}
+function previewSalahFallback() {
+  return {
+    minute: [353, 744, 874, 1017, 1128], sunrise: 462, sunset: 1017, valid: true, current: 1
+  };
+}
+function previewSalahCompute(lat, lon, y, m, d, hr, mi, method, madhab, located, tzName) {
+  const out = { minute: [-1, -1, -1, -1, -1], sunrise: -1, sunset: -1, valid: false, current: 0 };
+  const methods = [{ fajr: 18, isha: 17, after: 0 }, { fajr: 15, isha: 15, after: 0 }, { fajr: 19.5, isha: 17.5, after: 0 }, { fajr: 18.5, isha: 0, after: 90 }, { fajr: 18, isha: 18, after: 0 }];
+  const meth = methods[method > 4 ? 0 : method] || methods[0];
+  if (!located) return previewSalahFallback();
+  const { decl, eqt } = sunPosition(julian(y, m, d) - lon / 360);
+  const tz = tzOffsetHours(tzName);
+  const noon = wrap24(12 - eqt + tz - lon / 15);
+  out.minute[1] = minuteOf(noon);
+  const span = hourAngle(0.833, lat, decl);
+  if (Number.isFinite(span)) {
+    out.sunrise = minuteOf(noon - span);
+    out.sunset = minuteOf(noon + span);
+    out.minute[3] = out.sunset;
+    out.minute[0] = minuteOf(noon - hourAngle(meth.fajr, lat, decl));
+    if (out.minute[0] < 0) out.minute[0] = (minuteOf(noon - span) - 90 + 1440) % 1440;
+    if (meth.after > 0) out.minute[4] = (out.minute[3] + meth.after) % 1440;
+    else {
+      out.minute[4] = minuteOf(noon + hourAngle(meth.isha, lat, decl));
+      if (out.minute[4] < 0) out.minute[4] = (out.minute[3] + 90) % 1440;
+    }
+  }
+  const factor = madhab ? 2 : 1;
+  const delta = factor + Math.tan((lat - decl) * Math.PI / 180);
+  const ang = -Math.atan(1 / delta) * 180 / Math.PI;
+  const asr = hourAngle(ang, lat, decl);
+  if (Number.isFinite(asr)) out.minute[2] = minuteOf(noon + asr);
+  out.valid = out.minute[0] >= 0 && out.minute[1] >= 0 && out.minute[3] >= 0 && out.minute[4] >= 0;
+  const now_m = hr * 60 + mi;
+  out.current = 0;
+  for (let i = 0; i < 5; i++) if (out.minute[i] >= 0 && now_m >= out.minute[i]) out.current = i;
+  return out;
+}
+function fmtPrayer(minute, clock24) {
+  if (minute < 0) return '--:--';
+  const h = Math.floor(minute / 60), m = minute % 60;
+  if (clock24) return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  let h12 = h % 12;
+  if (!h12) h12 = 12;
+  return h12 + ':' + String(m).padStart(2, '0') + (h >= 12 ? 'p' : 'a');
+}
+function monthShort(m) {
+  return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1] || '';
+}
+function inkOnPaper(col) {
+  return (col === INK[1] || col === INK[2]) ? INK[0] : col;
+}
+function inkOnFill(col) {
+  return (col === INK[1] || col === INK[2]) ? INK[0] : INK[1];
+}
+function pvTitleBar(ctx, x, y, w, fill, text, font, col) {
+  const h = 14;
+  pvFill(ctx, x, y, w, h, fill);
+  const ink = col !== undefined ? col : inkOnFill(fill);
+  pvClip(ctx, x + 4, y + 1, w - 8, h - 2, text, ink, font);
+}
+function getPreviewInks() {
+  const theme = document.getElementById('themePreset').value;
+  const spec = theme === '3' ? {
+    bar: +document.getElementById('colorBar').value,
+    clock: +document.getElementById('colorAccent').value,
+    frame: +document.getElementById('colorAlert').value,
+    accent: +document.getElementById('colorAccent').value,
+    alert: +document.getElementById('colorAlert').value
+  } : (THEMES[theme] || THEMES['0']);
+  const dark = document.getElementById('darkMode').checked;
+  const paper = dark ? INK[0] : INK[1];
+  const body = dark ? INK[1] : INK[0];
+  const barCol = INK[spec.bar] || INK[0];
+  const barFill = barCol === paper ? body : barCol;
+  const barText = (spec.bar === 1 || spec.bar === 2) ? INK[0] : INK[1];
+  const barInk = barText === barFill ? (dark ? INK[0] : INK[1]) : barText;
+  let clock = INK[spec.clock];
+  if (clock === barFill) clock = barInk;
+  return {
+    paper, body, barFill, barInk, clock, frame: INK[spec.frame], accent: INK[spec.accent], alert: INK[spec.alert],
+    inner: dark ? INK[0] : INK[1], dark, upper: document.getElementById('upperTitles').checked
+  };
+}
+function pvFill(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+}
+function pvFrame(ctx, x, y, w, h, t, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = t;
+  ctx.strokeRect(x + t / 2, y + t / 2, w - t, h - t);
+}
+function pvClip(ctx, x, y, w, h, text, color, font, align) {
+  if (!text) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.fillStyle = color;
+  ctx.font = font;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = align || 'left';
+  const ax = align === 'right' ? x + w : align === 'center' ? x + w / 2 : x;
+  ctx.fillText(text, ax, y);
+  ctx.restore();
+}
+function pvStrike(ctx, x1, y, x2, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x1, y);
+  ctx.lineTo(x2, y);
+  ctx.stroke();
+}
+function pvWifi(ctx, x, y, color) {
+  for (let i = 0; i < 4; i++) {
+    pvFill(ctx, x + i * 6, y + (3 - i) * 3, 4, 4 + i * 3, color);
+  }
+}
+function previewBarSlots(tz) {
+  const clock24 = document.getElementById('clock24').value === '1';
+  const dateFmt = document.getElementById('dateFormat').value;
+  const longDay = document.getElementById('weekdayStyle').value === '1';
+  const now = new Date();
+  const base = tz ? { timeZone: tz } : {};
+  const intl = 'en-GB';
+  const piece = (opts) => new Intl.DateTimeFormat(intl, Object.assign({}, base, opts)).format(now).replace(/\.$/, '');
+  let wd = 'Mon', dt = '9 Nov', tm = '13:40';
+  try {
+    wd = piece({ weekday: longDay ? 'long' : 'short' });
+    const day = piece({ day: 'numeric' });
+    const day2 = piece({ day: '2-digit' });
+    const mon = piece({ month: 'short' });
+    const mon2 = piece({ month: '2-digit' });
+    const year = piece({ year: 'numeric' });
+    dt = dateFmt === '1' ? mon + ' ' + day
+      : dateFmt === '2' ? day2 + '/' + mon2
+      : dateFmt === '3' ? mon2 + '/' + day2
+      : dateFmt === '4' ? year + '-' + mon2 + '-' + day2
+      : dateFmt === '5' ? hijriLabel(now, tz)
+      : day + ' ' + mon;
+    tm = piece({ hour: '2-digit', minute: '2-digit', hourCycle: clock24 ? 'h23' : 'h12' });
+  } catch (e) {}
+  const place = previewPlace.name || document.getElementById('place').value.trim() || 'Your place';
+  const vis = (id) => document.getElementById(['tbPlace', 'tbClock', 'tbWifi', 'tbBatt', 'tbDate', 'tbWeekday'][id])?.checked;
+  const order = parseOrder(document.getElementById('toolbarOrder').value);
+  const map = { 0: place, 1: tm, 2: '\u25ae\u25ae\u25ae', 3: '80%', 4: dt, 5: wd };
+  const slots = [];
+  order.forEach(id => { if (vis(id)) slots.push({ id, text: map[id] || '' }); });
+  return slots;
+}
+function drawPaperCanvas() {
+  const canvas = document.getElementById('prevCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = 400, H = 300;
+  const inks = getPreviewInks();
+  const frameOn = (id) => document.getElementById(id)?.checked;
+  const blockOn = (id) => document.getElementById(id)?.checked !== false;
+  const tz = document.getElementById('timezone').value;
+  const civil = previewMode === 'ramadan' ? ramadanPreviewCivil(tz) : localCivilNow(tz);
+  const cal = fillCalendar(civil.y, civil.m, civil.d);
+  const method = +document.getElementById('salahMethod').value;
+  const madhab = +document.getElementById('asrMadhab').value;
+  const clock24 = document.getElementById('clock24').value === '1';
+  const located = previewPlace.ready;
+  let salah = previewSalahCompute(previewPlace.lat, previewPlace.lon, civil.y, civil.m, civil.d, civil.hr, civil.mi, method, madhab, located, tz);
+  if (!salah.valid) salah = previewSalahFallback();
+  const fBody = '600 11px system-ui, sans-serif';
+  const fBar = '700 12px system-ui, sans-serif';
+  const fBig = '700 22px Georgia, serif';
+  const fSm = '600 10px system-ui, sans-serif';
+  const upper = (s) => inks.upper ? String(s).toUpperCase() : s;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  pvFill(ctx, 0, 0, W, H, inks.paper);
+  pvFill(ctx, 0, 0, W, 28, inks.barFill);
+  let bx = 8;
+  const slots = previewBarSlots(tz);
+  let prevId = -1;
+  slots.forEach((sl, idx) => {
+    if (sl.id === 0 && prevId === 1) {
+      pvClip(ctx, bx, 6, 20, 18, ' - ', inks.clock, fBar);
+      bx += 18;
+    }
+    const col = sl.id === 0 ? inks.barInk : inks.clock;
+    if (sl.id === 2) {
+      pvWifi(ctx, bx, 8, col);
+      bx += 24;
+    } else {
+      ctx.font = fBar;
+      const tw = Math.min(120, Math.ceil(ctx.measureText(sl.text).width) + 2);
+      pvClip(ctx, bx, 6, tw, 18, sl.text, col, fBar);
+      const gap = sl.id === 1 && slots[idx + 1]?.id === 0 ? 0 : 6;
+      bx += tw + gap;
+    }
+    prevId = sl.id;
+  });
+  const gap = 4;
+  const span = W - 16;
+  const tw = Math.floor((span - gap * 4) / 5);
+  const extra = span - (tw * 5 + gap * 4);
+  if (blockOn('bPrayers')) {
+    const boxed = frameOn('bFramePrayers');
+    let x = 8;
+    for (let i = 0; i < 5; i++) {
+      const tile = tw + (i < extra ? 1 : 0);
+      const y = 32, h = 56;
+      const current = salah.valid && salah.current === i;
+      const done = salah.valid && i < salah.current;
+      let nameInk, timeInk;
+      if (current) {
+        pvFill(ctx, x, y, tile, h, inks.alert);
+        nameInk = timeInk = (inks.alert === INK[1] || inks.alert === INK[2]) ? INK[0] : INK[1];
+      } else {
+        pvFill(ctx, x, y, tile, h, inks.accent);
+        nameInk = timeInk = (inks.accent === INK[1] || inks.accent === INK[2]) ? INK[0] : INK[1];
+        if (boxed) pvFrame(ctx, x, y, tile, h, 2, inks.frame);
+      }
+      const when = fmtPrayer(salah.valid ? salah.minute[i] : -1, clock24);
+      pvClip(ctx, x + 4, y + 8, tile - 8, 16, upper(SALAH_NAMES[i]), nameInk, fSm, 'center');
+      pvClip(ctx, x + 4, y + 28, tile - 8, 20, when, timeInk, '600 13px system-ui', 'center');
+      if (done) {
+        pvStrike(ctx, x + 8, y + 16, x + tile - 8, nameInk);
+        pvStrike(ctx, x + 8, y + 38, x + tile - 8, timeInk);
+      }
+      x += tile + gap;
+    }
+  }
+  {
+    const moonOn = blockOn('bRamadan');
+    const sunOn = blockOn('bSun');
+    const y = 92, h = 60, band = W - 16, half = Math.floor((band - 4) / 2);
+    if (moonOn) {
+      const x = 8, w = sunOn ? half : band;
+      if (frameOn('bFrameRamadan')) pvFrame(ctx, x, y, w, h, 2, inks.frame);
+      const known = cal.hy > 0;
+      const days = Math.min(cal.ramadanDays, 999);
+      const num = known ? String(days < 1 ? 1 : days) : '--';
+      const word = !known ? 'Set a place' : cal.inRamadan
+        ? (days === 1 ? 'day left' : 'days left')
+        : (days === 1 ? 'day to Ramadan' : 'days to Ramadan');
+      const hijri = known ? (cal.hd + ' ' + (HIJRI_MONTHS[cal.hm - 1] || '') + ' ' + cal.hy) : '';
+      ctx.font = '700 28px Georgia, serif';
+      const nw = ctx.measureText(num).width;
+      pvClip(ctx, x + 8, y + 12, nw + 8, 36, num, inks.body, '700 28px Georgia, serif');
+      pvClip(ctx, x + 18 + nw, y + 14, w - 26 - nw, 16, word, inks.body, fSm);
+      if (hijri) pvClip(ctx, x + 18 + nw, y + 32, w - 26 - nw, 16, hijri, inkOnPaper(inks.accent), fSm);
+    }
+    if (sunOn) {
+      const x = moonOn ? 8 + half + 4 : 8, w = moonOn ? half : band;
+      if (frameOn('bFrameSun')) pvFrame(ctx, x, y, w, h, 2, inks.frame);
+      const rise = cal.inRamadan ? salah.minute[0] : salah.sunrise;
+      const set = cal.inRamadan ? salah.minute[3] : salah.sunset;
+      const lname = cal.inRamadan ? 'Suhoor' : 'Sunrise';
+      const rname = cal.inRamadan ? 'Iftar' : 'Sunset';
+      const left = fmtPrayer(salah.valid ? rise : -1, clock24);
+      const right = fmtPrayer(salah.valid ? set : -1, clock24);
+      if (moonOn) {
+        const row = 22, top = y + (h - row * 2) / 2, pad = 8;
+        pvClip(ctx, x + pad, top + 2, w - pad * 2, 16, lname, inks.body, fSm);
+        pvClip(ctx, x + pad, top, w - pad * 2, 18, left, inks.body, fBody, 'right');
+        pvClip(ctx, x + pad, top + row + 2, w - pad * 2, 16, rname, inks.body, fSm);
+        pvClip(ctx, x + pad, top + row, w - pad * 2, 18, right, inks.body, fBody, 'right');
+      } else {
+        const hw = w / 2, pad = 8, textY = y + (h - 20) / 2;
+        pvClip(ctx, x + pad, textY + 2, hw - pad * 2, 16, lname, inks.body, fSm);
+        pvClip(ctx, x + pad, textY, hw - pad * 2, 18, left, inks.body, fBody, 'right');
+        pvClip(ctx, x + hw + pad, textY + 2, hw - pad * 2, 16, rname, inks.body, fSm);
+        pvClip(ctx, x + hw + pad, textY, hw - pad * 2, 18, right, inks.body, fBody, 'right');
+      }
+    }
+  }
+  if (blockOn('bHoliday')) {
+    const y = 156, h = 40;
+    const known = !!(cal.holiday && cal.holidayDays >= 0);
+    const today = known && cal.holidayDays === 0;
+    const soon = known && cal.holidayDays > 0 && cal.holidayDays <= 14;
+    let fill = today ? inks.alert : soon ? inks.accent : null;
+    let nameInk = inks.body;
+    if (fill) {
+      pvFill(ctx, 8, y, W - 16, h, fill);
+      nameInk = (fill === INK[1] || fill === INK[2]) ? INK[0] : INK[1];
+    } else if (frameOn('bFrameHoliday')) pvFrame(ctx, 8, y, W - 16, h, 2, inks.frame);
+    const head = today ? 'TODAY' : soon ? 'SOON' : 'NEXT';
+    const when = known && cal.holidayMonth ? cal.holidayDay + ' ' + monthShort(cal.holidayMonth) : '';
+    pvClip(ctx, 16, y + 12, 64, 16, upper(head), nameInk, fSm);
+    pvClip(ctx, 84, y + 10, W - 180, 22, known ? cal.holiday : 'Set a place', nameInk, fBody);
+    if (when) pvClip(ctx, W - 88, y + 12, 72, 16, when, nameInk, fSm, 'right');
+  }
+  const duaOn = blockOn('bDua'), asmaOn = blockOn('bAsma');
+  if (duaOn || asmaOn) {
+    const band = W - 16, half = Math.floor((band - 4) / 2), y = 200, h = 52;
+    const pickDay = new Date(civil.y, civil.m - 1, civil.d);
+    if (duaOn) {
+      const x = 8, w = asmaOn ? half : band;
+      if (frameOn('bFrameDua')) pvFrame(ctx, x, y, w, h, 2, inks.frame);
+      const dua = duaForDay(pickDay);
+      pvTitleBar(ctx, x, y, w, inks.accent, upper('Dua'), fSm);
+      pvClip(ctx, x + 8, y + 18, w - 16, 16, dua[0], inks.body, fSm);
+      pvClip(ctx, x + 8, y + 34, w - 16, 14, dua[1], inkOnPaper(inks.accent), '600 10px system-ui');
+    }
+    if (asmaOn) {
+      const x = duaOn ? 8 + half + 4 : 8, w = duaOn ? half : band;
+      if (frameOn('bFrameAsma')) pvFrame(ctx, x, y, w, h, 2, inks.frame);
+      const name = asmaForDay(pickDay);
+      pvTitleBar(ctx, x, y, w, inks.accent, upper('99 Names'), fSm);
+      pvClip(ctx, x + 8, y + 18, w - 16, 16, name[0], inks.body, fSm);
+      pvClip(ctx, x + 8, y + 34, w - 16, 14, name[1], inkOnPaper(inks.accent), '600 10px system-ui');
+    }
+  }
+  if (blockOn('bRadio')) {
+    const x = 8, y = 256, w = W - 16, h = 36;
+    const boxed = frameOn('bFrameRadio');
+    const live = document.getElementById('prevLive');
+    const on = live && /\/ ON\b/.test(live.textContent);
+    if (on) {
+      pvFill(ctx, x, y, w, h, inks.alert);
+      pvTitleBar(ctx, x, y, w, inks.alert, upper('Radio'), fSm);
+      pvFill(ctx, x + 3, y + 17, w - 6, h - 20, inks.paper);
+      pvClip(ctx, x + 8, y + 18, w - 16, 16, live ? live.textContent : 'Quran / ON', inks.body, fBody, 'center');
+    } else {
+      if (boxed) pvFrame(ctx, x, y, w, h, 2, inks.frame);
+      pvTitleBar(ctx, x, y, w, inks.accent, upper('Radio'), fSm);
+      pvClip(ctx, x + 8, y + 18, w - 16, 16, live ? live.textContent : 'Quran / OFF', inks.body, fBody, 'center');
+    }
+  }
+  document.getElementById('preview').style.background = inks.paper;
+}
+function paintTheme() {
+  const theme = document.getElementById('themePreset').value;
+  document.querySelectorAll('.theme').forEach(b => b.classList.toggle('on', b.dataset.theme === theme));
+  document.getElementById('customColors').classList.toggle('off', theme !== '3');
+  document.querySelectorAll('.pigs').forEach(group => {
+    const v = document.getElementById(group.dataset.for).value;
+    group.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  });
+  drawPaperCanvas();
+}
+const RADIO_MAX = 8;
+function stationRow(name, url) {
+  const el = document.createElement('article');
+  el.className = 'station';
+  el.innerHTML =
+    '<div class="station-top"><button type="button" class="nudge" data-dir="-1" aria-label="Move station up">↑</button>' +
+    '<button type="button" class="nudge" data-dir="1" aria-label="Move station down">↓</button>' +
+    '<b class="idx"></b><button type="button" class="drop" data-i18n="remove">Remove</button></div>' +
+    '<label class="field"><span data-i18n="name">Name</span><input class="st-name" type="text" maxlength="23"></label>' +
+    '<label class="field"><span data-i18n="address">Address</span><textarea class="st-url" maxlength="127" rows="2" placeholder="http://"></textarea></label>';
+  el.querySelector('.st-name').value = name || '';
+  el.querySelector('.st-url').value = url || '';
+  return el;
+}
+function paintStations() {
+  const rows = document.querySelectorAll('#stations .station');
+  rows.forEach((el, i) => { el.querySelector('.idx').textContent = 'Station ' + (i + 1); });
+  document.getElementById('addStation').disabled = rows.length >= RADIO_MAX;
+}
+function setStations(rows) {
+  const list = document.getElementById('stations');
+  const defaults = [
+    { name: 'Quran', url: 'https://qurango.net/radio/mix' },
+    { name: 'Qurango', url: 'https://qurango.net/radio/tarateel' }
+  ];
+  list.replaceChildren();
+  (rows === undefined ? defaults : rows).slice(0, RADIO_MAX).forEach(r => list.appendChild(stationRow(r.name, r.url)));
+  paintStations();
+}
+function readStations() {
+  return [...document.querySelectorAll('#stations .station')].map(el => ({
+    name: el.querySelector('.st-name').value.trim(),
+    url: el.querySelector('.st-url').value.trim()
+  })).filter(s => s.url).slice(0, RADIO_MAX);
+}
+function hijriLabel(now, tz) {
+  const months = ['Muharram', 'Safar', 'Rabi I', 'Rabi II', 'Jumada I', 'Jumada II', 'Rajab', 'Shaban', 'Ramadan', 'Shawwal', 'Dhul Qidah', 'Dhul Hijjah'];
+  let y = now.getFullYear(), m = now.getMonth() + 1, d = now.getDate();
+  if (tz) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
+      y = +parts.find(p => p.type === 'year').value;
+      m = +parts.find(p => p.type === 'month').value;
+      d = +parts.find(p => p.type === 'day').value;
+    } catch (e) {}
+  }
+  const a = Math.floor((14 - m) / 12);
+  const yy = y + 4800 - a;
+  const mm = m + 12 * a - 3;
+  const jd = d + Math.floor((153 * mm + 2) / 5) + 365 * yy + Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) - 32045;
+  let l = jd - 1948440 + 10632;
+  const n = Math.floor((l - 1) / 10631);
+  l = l - 10631 * n + 354;
+  const j = Math.floor((10985 - l) / 5316) * Math.floor((50 * l) / 17719) + Math.floor(l / 5670) * Math.floor((43 * l) / 15238);
+  l = l - Math.floor((30 - j) / 15) * Math.floor((17719 * j) / 50) - Math.floor(j / 16) * Math.floor((15238 * j) / 43) + 29;
+  const hm = Math.floor((24 * l) / 709);
+  const hd = l - Math.floor((709 * hm) / 24);
+  const hy = 30 * n + j - 30;
+  return hd + ' ' + (months[hm - 1] || '') + ' ' + hy;
+}
+function sampleWhen() { drawPaperCanvas(); }
+function duaForDay(now) {
+  const duas = [
+    ['Rabbi zidni ilma', 'Increase me in knowledge'],
+    ['Rabbighfir li', 'Forgive me'],
+    ['Hasbunallah', 'Allah is sufficient for us'],
+    ['La hawla wa la quwwata', 'No power except with Allah'],
+    ['Allahumma afiyah', 'Well-being'],
+    ['Astaghfirullah', 'I seek forgiveness'],
+    ['SubhanAllah', 'Glory to Allah'],
+    ['Allahumma huda', 'Guidance'],
+    ['Rabbana hasanah', 'Good in this world'],
+    ['Rabbana la tuzigh', 'Do not let hearts stray'],
+    ['Allahumma barik', 'Bless what You provide'],
+    ['Rabbi rahmah', 'Mercy from You'],
+    ['Allahumma nafi', 'Beneficial knowledge'],
+    ['Allahumma halal', 'Suffice me with halal'],
+    ['A\'udhu bika', 'Refuge from anxiety'],
+    ['Bismillah tawakkaltu', 'In Allah I trust'],
+    ['Salla ala Muhammad', 'Bless Muhammad'],
+    ['Rabbana taqabbal', 'Accept from us'],
+    ['Allahumma dhikr', 'Help me remember You'],
+    ['Rabbana zalamna', 'We wronged ourselves'],
+    ['Thabbit qalbi', 'Firm heart on faith'],
+    ['Min at-tawwabin', 'Among the repentant'],
+    ['Allahumma jannah', 'Paradise'],
+    ['La tu\'akhidhna', 'Pardon our forgetfulness'],
+    ['Ahsan al-akhlaq', 'Best character'],
+    ['Rabbi khayr', 'I need Your good'],
+    ['Husn al-khatimah', 'A good ending'],
+    ['SubhanAllah al-Azim', 'Glory to the Magnificent'],
+    ['La ilaha illa ant', 'You alone I worship'],
+    ['Qurrata a\'yun', 'Joy in family'],
+    ['Wa atubu ilayk', 'I repent to You']
+  ];
+  const yday = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(now.getFullYear(), 0, 1)) / 86400000);
+  return duas[((yday % duas.length) + duas.length) % duas.length];
+}
+const ASMA_99 = [
+  ['Ar-Rahman', 'The Most Gracious'],
+  ['Ar-Rahim', 'The Most Merciful'],
+  ['Al-Malik', 'The King'],
+  ['Al-Quddus', 'The Most Holy'],
+  ['As-Salam', 'The Source of Peace'],
+  ['Al-Mu\'min', 'The Guardian of Faith'],
+  ['Al-Muhaymin', 'The Preserver'],
+  ['Al-Aziz', 'The Almighty'],
+  ['Al-Jabbar', 'The Compeller'],
+  ['Al-Mutakabbir', 'The Majestic'],
+  ['Al-Khaliq', 'The Creator'],
+  ['Al-Bari', 'The Maker'],
+  ['Al-Musawwir', 'The Fashioner'],
+  ['Al-Ghaffar', 'The Forgiving'],
+  ['Al-Qahhar', 'The Subduer'],
+  ['Al-Wahhab', 'The Bestower'],
+  ['Ar-Razzaq', 'The Provider'],
+  ['Al-Fattah', 'The Opener'],
+  ['Al-Alim', 'The All-Knowing'],
+  ['Al-Qabid', 'The Withholder'],
+  ['Al-Basit', 'The Expander'],
+  ['Al-Khafid', 'The Abaser'],
+  ['Ar-Rafi', 'The Exalter'],
+  ['Al-Mu\'izz', 'The Honourer'],
+  ['Al-Mudhill', 'The Humiliator'],
+  ['As-Sami', 'The All-Hearing'],
+  ['Al-Basir', 'The All-Seeing'],
+  ['Al-Hakam', 'The Judge'],
+  ['Al-Adl', 'The Just'],
+  ['Al-Latif', 'The Subtle'],
+  ['Al-Khabir', 'The All-Aware'],
+  ['Al-Halim', 'The Forbearing'],
+  ['Al-Azim', 'The Magnificent'],
+  ['Al-Ghafur', 'The Forgiving'],
+  ['Ash-Shakur', 'The Appreciative'],
+  ['Al-Ali', 'The Most High'],
+  ['Al-Kabir', 'The Greatest'],
+  ['Al-Hafiz', 'The Preserver'],
+  ['Al-Muqit', 'The Sustainer'],
+  ['Al-Hasib', 'The Reckoner'],
+  ['Al-Jalil', 'The Majestic'],
+  ['Al-Karim', 'The Generous'],
+  ['Ar-Raqib', 'The Watchful'],
+  ['Al-Mujib', 'The Responsive'],
+  ['Al-Wasi', 'The All-Encompassing'],
+  ['Al-Hakim', 'The Wise'],
+  ['Al-Wadud', 'The Loving'],
+  ['Al-Majid', 'The Glorious'],
+  ['Al-Ba\'ith', 'The Resurrector'],
+  ['Ash-Shahid', 'The Witness'],
+  ['Al-Haqq', 'The Truth'],
+  ['Al-Wakil', 'The Trustee'],
+  ['Al-Qawi', 'The Strong'],
+  ['Al-Matin', 'The Firm'],
+  ['Al-Wali', 'The Protector'],
+  ['Al-Hamid', 'The Praiseworthy'],
+  ['Al-Muhsi', 'The Accounter'],
+  ['Al-Mubdi', 'The Originator'],
+  ['Al-Mu\'id', 'The Restorer'],
+  ['Al-Muhyi', 'The Giver of Life'],
+  ['Al-Mumit', 'The Taker of Life'],
+  ['Al-Hayy', 'The Ever-Living'],
+  ['Al-Qayyum', 'The Self-Subsisting'],
+  ['Al-Wajid', 'The Finder'],
+  ['Al-Majid', 'The Noble'],
+  ['Al-Wahid', 'The One'],
+  ['Al-Ahad', 'The Unique'],
+  ['As-Samad', 'The Eternal'],
+  ['Al-Qadir', 'The Able'],
+  ['Al-Muqtadir', 'The Powerful'],
+  ['Al-Muqaddim', 'The Expediter'],
+  ['Al-Mu\'akhkhir', 'The Delayer'],
+  ['Al-Awwal', 'The First'],
+  ['Al-Akhir', 'The Last'],
+  ['Az-Zahir', 'The Manifest'],
+  ['Al-Batin', 'The Hidden'],
+  ['Al-Wali', 'The Governor'],
+  ['Al-Muta\'ali', 'The Exalted'],
+  ['Al-Barr', 'The Source of Good'],
+  ['At-Tawwab', 'The Acceptor of Repentance'],
+  ['Al-Muntaqim', 'The Avenger'],
+  ['Al-Afu', 'The Pardoner'],
+  ['Ar-Ra\'uf', 'The Compassionate'],
+  ['Malik al-Mulk', 'Owner of Sovereignty'],
+  ['Dhu al-Jalal wa al-Ikram', 'Possessor of Glory'],
+  ['Al-Muqsit', 'The Equitable'],
+  ['Al-Jami', 'The Gatherer'],
+  ['Al-Ghani', 'The Self-Sufficient'],
+  ['Al-Mughni', 'The Enricher'],
+  ['Al-Mani', 'The Preventer'],
+  ['Ad-Darr', 'The Distresser'],
+  ['An-Nafi', 'The Benefactor'],
+  ['An-Nur', 'The Light'],
+  ['Al-Hadi', 'The Guide'],
+  ['Al-Badi', 'The Incomparable'],
+  ['Al-Baqi', 'The Everlasting'],
+  ['Al-Warith', 'The Inheritor'],
+  ['Ar-Rashid', 'The Guide to the Right Path'],
+  ['As-Sabur', 'The Patient']
+];
+function asmaForDay(now) {
+  const yday = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(now.getFullYear(), 0, 1)) / 86400000);
+  return ASMA_99[((yday % ASMA_99.length) + ASMA_99.length) % ASMA_99.length];
+}
+function paintPaper() { drawPaperCanvas(); }
+function paint() {
+  applyLang();
+  document.getElementById('preview').classList.toggle('upper', document.getElementById('upperTitles').checked);
+  paintSegs();
+  paintOrder('toolbarList', 'toolbarOrder');
+  paintTheme();
+}
+document.querySelectorAll('.preview-modes button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    previewMode = btn.dataset.prevMode || 'today';
+    document.querySelectorAll('.preview-modes button').forEach(b => {
+      const on = b === btn;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    paint();
+  });
+});
+document.querySelectorAll('.seg').forEach(seg => {
+  seg.addEventListener('click', ev => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    document.getElementById(seg.dataset.for).value = b.dataset.v;
+    paint();
+  });
+});
+document.querySelectorAll('.theme').forEach(b => b.onclick = () => { document.getElementById('themePreset').value = b.dataset.theme; paint(); });
+document.querySelectorAll('.pigs').forEach(group => {
+  for (let v = 0; v < 4; v++) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'swatch k' + v;
+    b.dataset.v = String(v);
+    b.setAttribute('aria-label', ['Black', 'Paper', 'Gold', 'Red'][v]);
+    b.onclick = () => { document.getElementById(group.dataset.for).value = String(v); paint(); };
+    group.appendChild(b);
+  }
+});
+document.getElementById('darkMode').addEventListener('change', paint);
+document.getElementById('upperTitles').addEventListener('change', paint);
+document.getElementById('frameList').addEventListener('change', paint);
+document.getElementById('toolbarList').addEventListener('change', paint);
+document.querySelectorAll('button.help').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const panel = document.getElementById(btn.getAttribute('aria-controls'));
+    const open = panel.hidden;
+    document.querySelectorAll('.helptext').forEach(p => { p.hidden = true; });
+    document.querySelectorAll('button.help').forEach(b => {
+      b.classList.remove('on');
+      b.setAttribute('aria-expanded', 'false');
+    });
+    if (open) {
+      panel.hidden = false;
+      btn.classList.add('on');
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  });
+});
+document.querySelector('.blocks').addEventListener('change', paint);
+document.getElementById('timezone').addEventListener('change', paint);
+document.getElementById('stations').addEventListener('click', ev => {
+  const list = document.getElementById('stations');
+  const row = ev.target.closest('.station');
+  if (!row) return;
+  if (ev.target.closest('.drop')) {
+    row.remove();
+    paintStations();
+    return;
+  }
+  const b = ev.target.closest('.nudge');
+  if (!b) return;
+  const dir = +b.dataset.dir;
+  const sib = dir < 0 ? row.previousElementSibling : row.nextElementSibling;
+  if (!sib) return;
+  if (dir < 0) list.insertBefore(row, sib);
+  else list.insertBefore(sib, row);
+  paintStations();
+});
+document.getElementById('addStation').onclick = () => {
+  const list = document.getElementById('stations');
+  if (list.children.length >= RADIO_MAX) return;
+  const row = stationRow('', '');
+  list.appendChild(row);
+  paintStations();
+  row.querySelector('.st-name').focus();
+};
+document.querySelectorAll('#toolbarList').forEach(list => {
+  list.addEventListener('click', ev => {
+    const b = ev.target.closest('.nudge');
+    if (!b) return;
+    const line = b.closest('.line');
+    const dir = +b.dataset.dir;
+    const sib = dir < 0 ? line.previousElementSibling : line.nextElementSibling;
+    if (!sib) return;
+    if (dir < 0) list.insertBefore(line, sib);
+    else list.insertBefore(sib, line);
+    writeOrder(list);
+    paint();
+  });
+});
+document.getElementById('pairBtn').onclick = async () => {
+  try {
+    const j = await api('/api/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: document.getElementById('pair').value.trim() }) });
+    token = j.token; localStorage.setItem('qurantrixToken', token); gate(); status(t('paired'), true); await load();
+  } catch (e) { status(e.message, false); }
+};
+async function loadZones(current) {
+  const sel = document.getElementById('timezone');
+  try {
+    const zones = await api('/api/timezones', { headers: hdr() });
+    const cur = current || sel.value;
+    sel.innerHTML = '';
+    (zones || []).forEach(z => {
+      const o = document.createElement('option');
+      o.value = z.name;
+      o.textContent = z.label || z.name;
+      sel.appendChild(o);
+    });
+    if (cur && ![...sel.options].some(o => o.value === cur)) {
+      const o = document.createElement('option');
+      o.value = cur;
+      o.textContent = cur;
+      sel.appendChild(o);
+    }
+    if (cur) sel.value = cur;
+  } catch (e) {
+    if (current && !sel.options.length) {
+      const o = document.createElement('option');
+      o.value = current;
+      o.textContent = current;
+      sel.appendChild(o);
+    }
+  }
+}
+async function load() {
+  if (!token) return;
+  try {
+    const cfg = await api('/api/config', { headers: hdr() });
+    document.getElementById('clock24').value = cfg.clock24 ? '1' : '0';
+    document.getElementById('calendarUrl').value = cfg.calendar_url || DEFAULT_CAL;
+    await loadZones(cfg.timezone || '');
+    if (cfg.location_ready && cfg.location)
+      document.getElementById('place').value = cfg.location;
+    if (cfg.location_ready && Number.isFinite(cfg.latitude))
+      document.getElementById('manualLat').value = String(cfg.latitude);
+    if (cfg.location_ready && Number.isFinite(cfg.longitude))
+      document.getElementById('manualLon').value = String(cfg.longitude);
+    previewPlace.lat = cfg.latitude ?? previewPlace.lat;
+    previewPlace.lon = cfg.longitude ?? previewPlace.lon;
+    previewPlace.ready = !!cfg.location_ready;
+    previewPlace.name = cfg.location || '';
+    try {
+      const st = await api('/api/status', { headers: hdr() });
+      if (st?.wifi?.ssid) document.getElementById('wifiSsid').value = st.wifi.ssid;
+    } catch (e) {}
+    const d = await api('/api/desk', { headers: hdr() });
+    document.getElementById('brush').value = d.brush ?? 0;
+    document.getElementById('darkMode').checked = !!d.dark_mode;
+    document.getElementById('upperTitles').checked = d.upper_titles !== false;
+    document.getElementById('salahMethod').value = String(d.salah_method ?? d.wind_unit ?? 0);
+    document.getElementById('asrMadhab').value = String(d.asr_madhab ?? d.forecast_style) === '1' ? '1' : '0';
+    document.getElementById('themePreset').value = d.theme_preset ?? 0;
+    document.getElementById('panelModel').value = String(d.panel_model ?? 0);
+    ['Bar','Accent','Alert','Hi','Lo'].forEach(k => {
+      const el = document.getElementById('color' + k);
+      if (el) el.value = d['color_' + k.toLowerCase()] ?? el.value;
+    });
+    if (d.toolbar_order) document.getElementById('toolbarOrder').value = d.toolbar_order.join(',');
+    if (d.metric_order) document.getElementById('metricOrder').value = d.metric_order.join(',');
+    if (d.foot_order) document.getElementById('footOrder').value = d.foot_order.join(',');
+    document.getElementById('dateFormat').value = String(d.date_format ?? 0);
+    document.getElementById('weekdayStyle').value = String(d.weekday_style ?? 0);
+    document.getElementById('tbPlace').checked = !!(d.toolbar_visible & 1);
+    document.getElementById('tbClock').checked = !!(d.toolbar_visible & 2);
+    document.getElementById('tbWifi').checked = !!(d.toolbar_visible & 4);
+    document.getElementById('tbBatt').checked = !!(d.toolbar_visible & 8);
+    document.getElementById('tbDate').checked = !!(d.toolbar_visible & 16);
+    document.getElementById('tbWeekday').checked = !!(d.toolbar_visible & 32);
+    document.getElementById('bPrayers').checked = !!(d.block_visible & 1);
+    document.getElementById('bRamadan').checked = !!(d.block_visible & 2);
+    document.getElementById('bRadio').checked = !!(d.block_visible & 8);
+    document.getElementById('bHoliday').checked = !!(d.block_visible & 16);
+    document.getElementById('bDua').checked = !!(d.block_visible & 4);
+    document.getElementById('bSun').checked = d.block_visible === undefined ? true : !!(d.block_visible & 32);
+    document.getElementById('bAsma').checked = d.block_visible === undefined ? true : !!(d.block_visible & 64);
+    const frames = d.borders === undefined || d.borders === null ? 0x7f : d.borders;
+    document.getElementById('bFrameRamadan').checked = !!(frames & 1);
+    document.getElementById('bFrameSun').checked = !!(frames & 2);
+    document.getElementById('bFramePrayers').checked = !!(frames & 8);
+    document.getElementById('bFrameRadio').checked = !!(frames & 32);
+    document.getElementById('bFrameHoliday').checked = !!(frames & 64);
+    document.getElementById('bFrameDua').checked = !!(frames & 16);
+    document.getElementById('bFrameAsma').checked = !!(frames & 4);
+    setStations(d.radios || []);
+    paint();
+    status(t('loaded'), true);
+  } catch (e) {
+    if (e.status === 401) {
+      token = '';
+      localStorage.removeItem('qurantrixToken');
+      gate();
+    }
+    status(e.message, false);
+  }
+}
+document.getElementById('wifiBtn').onclick = async () => {
+  try {
+    await api('/api/wifi', { method: 'POST', headers: hdr(), body: JSON.stringify({
+      ssid: document.getElementById('wifiSsid').value, password: document.getElementById('wifiPass').value }) });
+    status(t('wifiSaved'), true);
+  } catch (e) { status(e.message, false); }
+};
+function fillPlaceResults(j) {
+  const sel = document.getElementById('places');
+  sel.innerHTML = '';
+  (j.results || []).forEach(p => {
+    const o = document.createElement('option');
+    o.value = JSON.stringify({ name: p.name, latitude: p.latitude, longitude: p.longitude, timezone: p.timezone });
+    o.textContent = p.name + (p.admin1 ? ', ' + p.admin1 : '') + (p.country ? ', ' + p.country : '');
+    sel.appendChild(o);
+  });
+  if (!sel.options.length) status(t('noPlaces'), false);
+  else { sel.selectedIndex = 0; status(t('placesCount').replace('%n', sel.options.length), true); }
+}
+async function geocodeQuery(q) {
+  try {
+    return await api('/api/geocode?name=' + encodeURIComponent(q), { headers: hdr() });
+  } catch (e) {
+    if (e.status === 503) {
+      try {
+        const r = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=8');
+        if (!r.ok) throw new Error('search failed');
+        return await r.json();
+      } catch {
+        throw new Error(t('searchNeeds'));
+      }
+    }
+    throw e;
+  }
+}
+async function applyPlace(p) {
+  const cfg = await api('/api/config', { headers: hdr() });
+  cfg.location = p.name;
+  cfg.latitude = p.latitude;
+  cfg.longitude = p.longitude;
+  cfg.location_ready = true;
+  const tz = p.timezone || document.getElementById('timezone').value;
+  if (tz) {
+    cfg.timezone = tz;
+    const sel = document.getElementById('timezone');
+    if (![...sel.options].some(o => o.value === tz)) {
+      const o = document.createElement('option');
+      o.value = tz;
+      o.textContent = tz;
+      sel.appendChild(o);
+    }
+    sel.value = tz;
+  }
+  cfg.clock24 = document.getElementById('clock24').value === '1';
+  previewPlace = { lat: p.latitude, lon: p.longitude, ready: true, name: p.name || '' };
+  document.getElementById('manualLat').value = String(p.latitude);
+  document.getElementById('manualLon').value = String(p.longitude);
+  await api('/api/config', { method: 'PUT', headers: hdr(), body: JSON.stringify(cfg) });
+  paint();
+  status(t('placeSaved').replace('%s', p.name), true);
+}
+document.getElementById('searchBtn').onclick = async () => {
+  try {
+    const q = document.getElementById('place').value.trim();
+    if (!q) return status(t('typePlace'), false);
+    const j = await geocodeQuery(q);
+    fillPlaceResults(j);
+  } catch (e) { status(e.message || t('searchNeeds'), false); }
+};
+document.getElementById('locBtn').onclick = async () => {
+  try {
+    const sel = document.getElementById('places');
+    if (!sel.value) return status(t('pickPlace'), false);
+    await applyPlace(JSON.parse(sel.value));
+  } catch (e) { status(e.message, false); }
+};
+document.getElementById('manualPlaceBtn').onclick = async () => {
+  try {
+    const lat = parseFloat(document.getElementById('manualLat').value);
+    const lon = parseFloat(document.getElementById('manualLon').value);
+    const zone = document.getElementById('timezone').value;
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90) return status(t('badLatitude'), false);
+    if (!Number.isFinite(lon) || lon < -180 || lon > 180) return status(t('badLongitude'), false);
+    if (!zone) return status(t('pickTimezone'), false);
+    const label = document.getElementById('place').value.trim() || (lat.toFixed(4) + ', ' + lon.toFixed(4));
+    await applyPlace({ name: label, latitude: lat, longitude: lon, timezone: zone });
+  } catch (e) { status(e.message, false); }
+};
+document.getElementById('deskBtn').onclick = async () => {
+  const btn = document.getElementById('deskBtn');
+  btn.disabled = true;
+  showSave(t('saving'), null);
+  try {
+    const cfg = await api('/api/config', { headers: hdr() });
+    cfg.clock24 = document.getElementById('clock24').value === '1';
+    const zone = document.getElementById('timezone').value;
+    if (zone) cfg.timezone = zone;
+    cfg.locale = 'en';
+    cfg.calendar_url = document.getElementById('calendarUrl').value.trim();
+    if (Array.isArray(cfg.enabled)) {
+      while (cfg.enabled.length < 6) cfg.enabled.push(false);
+      cfg.enabled[5] = !!cfg.calendar_url;
+    }
+    localStorage.removeItem('qurantrixLang');
+    await api('/api/config', { method: 'PUT', headers: hdr(), body: JSON.stringify(cfg) });
+    const body = {
+      brush: +document.getElementById('brush').value,
+      dark_mode: document.getElementById('darkMode').checked,
+      upper_titles: document.getElementById('upperTitles').checked,
+      salah_method: +document.getElementById('salahMethod').value,
+      asr_madhab: +document.getElementById('asrMadhab').value,
+      borders: (document.getElementById('bFrameRamadan').checked ? 1 : 0) |
+        (document.getElementById('bFrameSun').checked ? 2 : 0) |
+        (document.getElementById('bFrameAsma').checked ? 4 : 0) |
+        (document.getElementById('bFramePrayers').checked ? 8 : 0) |
+        (document.getElementById('bFrameRadio').checked ? 32 : 0) |
+        (document.getElementById('bFrameHoliday').checked ? 64 : 0) |
+        (document.getElementById('bFrameDua').checked ? 16 : 0),
+      theme_preset: +document.getElementById('themePreset').value,
+      panel_model: +document.getElementById('panelModel').value,
+      color_bar: +document.getElementById('colorBar').value,
+      color_accent: +document.getElementById('colorAccent').value,
+      color_alert: +document.getElementById('colorAlert').value,
+      color_hi: +document.getElementById('colorHi').value,
+      color_lo: +document.getElementById('colorLo').value,
+      toolbar_order: parseOrder(document.getElementById('toolbarOrder').value),
+      metric_order: parseOrder(document.getElementById('metricOrder').value),
+      foot_order: parseOrder(document.getElementById('footOrder').value),
+      date_format: +document.getElementById('dateFormat').value,
+      weekday_style: +document.getElementById('weekdayStyle').value,
+      toolbar_visible: visBits([0,1,2,3,4,5], ['tbPlace','tbClock','tbWifi','tbBatt','tbDate','tbWeekday']),
+      metric_visible: 0,
+      block_visible: (document.getElementById('bPrayers').checked ? 1 : 0) |
+        (document.getElementById('bRamadan').checked ? 2 : 0) |
+        (document.getElementById('bRadio').checked ? 8 : 0) |
+        (document.getElementById('bHoliday').checked ? 16 : 0) |
+        (document.getElementById('bDua').checked ? 4 : 0) |
+        (document.getElementById('bSun').checked ? 32 : 0) |
+        (document.getElementById('bAsma').checked ? 64 : 0),
+      radios: readStations()
+    };
+    await api('/api/desk', { method: 'PUT', headers: hdr(), body: JSON.stringify(body) });
+    showSave(t('savedPaper'), true);
+  } catch (e) { showSave(e.message, false); }
+  finally { btn.disabled = false; }
+};
+const I18N = {
+  en: {
+    blurb: 'A dashboard for Quran radio, prayer times, Islamic holidays, Ramadan schedules, Dua of the Day, and a daily reminder featuring one of the 99 Names of Allah.',
+    blockPrayers: 'Prayers', blockRamadan: 'Ramadan', blockSun: 'Sun times', blockHoliday: 'Holiday', blockDua: 'Dua', blockAsma: '99 Names',
+    salahMethod: 'Prayer method', asrSchool: 'Asr', holidayCal: 'Holiday calendar',
+    holidayHint: 'A public Muslim holidays calendar. Paste another https iCal address to use that agenda instead.',
+    borderPrayers: 'Prayers', borderRamadan: 'Ramadan', borderSun: 'Sun times', borderHoliday: 'Holiday', borderDua: 'Dua', borderAsma: '99 Names',
+    setupTitle: 'Setup',
+    settingsTitle: 'Settings',
+    onWord: 'ON',
+    helpLabel: 'Help',
+    helpPair: 'Double-tap the round button. The paper shows six digits for about five minutes. Join QuranTrix-Setup and type the code here. Pairing on that network clears older phones and keeps this one. Up to four phones can be paired from your home network later.',
+    helpWifi: 'The home network. After you save, the password stays on the device. This page does not keep it.',
+    helpPlace: 'Prayer times use this place and its time zone. Search asks the desk first when it is on your home Wi‑Fi with internet, otherwise your phone. With no internet, choose a time zone and save latitude and longitude manually.',
+    helpPaper: 'The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and strikes through the highlighted prayer.',
+    helpTop: 'Weekday, date, time, place, Wi-Fi, and battery. Up moves an item toward the left. The clock follows the time zone. Choosing a place fills the zone in.',
+    helpLook: 'Themes, texture, uppercase titles, and dark paper. Dark paper swaps black and paper. The sketch above matches the paper.',
+    helpBorders: 'A frame around the prayers, the Ramadan count, sun times, the holiday, the dua, or the radio.',
+    helpRadio: 'The stations the round button plays. One tap turns the radio on or off. A short press of Up or Down changes the volume. Hold one for about two seconds to change station. If the first stream does not open, the next one plays.',
+    pairTitle: 'Pair this phone', pairHint: 'Type the six digits on the display.', pairCode: 'Pairing code', pairBtn: 'Pair',
+    wifiTitle: 'Wi‑Fi', wifiHint: 'The home network. The password stays on the device.', network: 'Network name', password: 'Password', saveWifi: 'Save Wi‑Fi',
+    placeTitle: 'Place', placeHint: 'Search for a city when you have internet, or enter coordinates below.', place: 'Place', searchPlaces: 'Search places', usePlace: 'Use this place',
+    manualPlaceHint: 'No internet? Set time zone under Top bar, enter latitude and longitude here, then save.',
+    latitude: 'Latitude', longitude: 'Longitude', saveCoords: 'Save coordinates',
+    panelModel: 'E-paper model', panelHint: 'Auto cannot tell the hardware apart. Choose NOTE4 on the monochrome NOTE4.',
+    paperTitle: 'On the paper', paperHint: 'Turn a block off. The top bar stays.',
+    topTitle: 'Top bar', topHint: 'Weekday, date, and time follow the time zone. Choosing a place fills the zone in. Up moves a row toward the left of the screen.',
+    timezone: 'Time zone', time: 'Time', date: 'Date', weekday: 'Weekday',
+    tbWeekday: 'Weekday', tbDate: 'Date', tbTime: 'Time', tbPlace: 'Place', tbWifi: 'Wi‑Fi', tbBattery: 'Battery',
+    lookTitle: 'Look', lookHint: 'The paper prints four pigments: black, paper, yellow, and red.', yourPlace: 'Your place', clearSkies: 'Clear skies',
+    classic: 'Classic', classicHint: 'Ink bar, gold clock', sunset: 'Sunset', sunsetHint: 'Red bar, gold clock',
+    ocean: 'Ocean', oceanHint: 'Ink bar, gold high', marquee: 'Marquee', marqueeHint: 'Gold bar, red clock',
+    chorus: 'Chorus', chorusHint: 'Red clock, red marks', brass: 'Brass', brassHint: 'Gold bar, black type',
+    spotlight: 'Spotlight', spotlightHint: 'Red bar, gold frames', custom: 'Custom', customHint: 'Pick each pigment',
+    bar: 'Bar', accent: 'Accent', alert: 'Alert', high: 'High', low: 'Low',
+    texture: 'Texture', noise: 'Noise', dots: 'Dots', grid: 'Grid', upperTitles: 'Uppercase box titles', darkPaper: 'Dark paper',
+    borders: 'Borders', borderForecast: 'Forecast', borderDegrees: 'Degrees', borderSky: 'Sky line', borderTiles: 'Weather tiles', borderRadio: 'Radio',
+    radioTitle: 'Radio', radioHint: 'Quran is the live broadcast. Qurango plays if that stream does not open.', addStation: 'Add a station', saveChanges: 'Save changes',
+    remove: 'Remove', name: 'Name', address: 'Address',
+    paired: 'Paired. The desk is yours.', loaded: 'Settings loaded.', wifiSaved: 'Wi‑Fi saved on the device.',
+    typePlace: 'Type a place first.', noPlaces: 'No places found.', placesCount: '%n places.',
+    searchNeeds: 'Search needs internet on the desk or on your phone.',
+    pickPlace: 'Pick a place.', pickTimezone: 'Choose a time zone first.', badLatitude: 'Latitude must be between −90 and 90.',
+    badLongitude: 'Longitude must be between −180 and 180.', placeSaved: '%s saved.', savedPaper: 'Saved. The paper will refresh.', saving: 'Saving…'
+  },
+
+};
+
+let lang = 'en';
+function t(key) {
+  const pack = I18N[lang] || I18N.en;
+  return pack[key] ?? key;
+}
+
+function applyLang() {
+  lang = 'en';
+  document.documentElement.lang = 'en';
+  document.documentElement.dir = 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const s = t(el.dataset.i18n);
+    if (s) el.textContent = s;
+  });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+    const s = t(el.dataset.i18nAria);
+    if (s) el.setAttribute('aria-label', s);
+  });
+  const link = '<a href="https://www.zectrix.com/en/note4c.html" target="_blank" rel="noopener noreferrer">NOTE4C</a>';
+  const blurb = document.getElementById('blurb');
+  if (blurb) blurb.innerHTML = t('blurb').replace('NOTE4C', link);
+  const word = document.body.classList.contains('locked')
+    ? (t('setupTitle') || 'Setup')
+    : (t('settingsTitle') || 'Settings');
+  const pageWord = document.getElementById('pageWord');
+  if (pageWord) pageWord.textContent = word;
+  const live = document.getElementById('prevLive');
+  if (live) live.textContent = 'Quran / ' + (t('onWord') || 'ON');
+  document.title = 'QuranTrix — ' + word;
+}
+setStations();
+gate();
+paint();
+if (token) load();
+else document.getElementById('pair').focus();
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+CONFIG_IDF_TARGET="esp32s3"
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHMODE_DIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_40M=y
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+# After a crash the device starts again instead of standing still until someone presses the reset
+# pin: a halted device keeps its last picture and looks fine while the battery runs down.
+CONFIG_ESP_SYSTEM_PANIC_PRINT_REBOOT=y
+CONFIG_FREERTOS_HZ=100
+# Power management: automatic light sleep between events. The locks in home_power.c keep it
+# away from the cable, from charging and from the maintenance protocol.
+# PM_SLP_DISABLE_GPIO comes out =y anyway, because ESP_SLEEP_GPIO_RESET_WORKAROUND (default y on
+# the S3) does a Kconfig `select` on it, and a select silently beats the line below. The line is
+# kept as a record of intent; the pins are actually released by gpio_sleep_sel_dis() in
+# home_power_init() for the power latch (17), the panel rail (6) and the three buttons.
+CONFIG_PM_ENABLE=y
+CONFIG_FREERTOS_USE_TICKLESS_IDLE=y
+CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION=y
+# CONFIG_PM_SLP_DISABLE_GPIO is not set
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_USE_MALLOC=y
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=4096
+CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=65536
+CONFIG_ESP_WIFI_ENABLED=y
+# CONFIG_ESP_WIFI_NVS_ENABLED is not set
+# CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE is not set
+# CONFIG_NVS_ENCRYPTION is not set
+# CONFIG_BT_ENABLED is not set
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_CROSS_SIGNED_VERIFY=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_OFFSET=0x8000
+CONFIG_LWIP_MAX_SOCKETS=12
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=2048
+CONFIG_HTTPD_MAX_URI_LEN=768
+# CONFIG_MDNS_ENABLE_CONSOLE_CLI is not set
+# CONFIG_MDNS_ENABLE_BROWSE is not set
+# CONFIG_MDNS_PREDEF_NETIF_ETH is not set
+CONFIG_MDNS_MAX_INTERFACES=2
+CONFIG_MDNS_MAX_SERVICES=1
+# Wi-Fi power save: after a beacon the station stays active at least this long, and the timer
+# restarts on every frame. The IDF default is 50 ms. On a home network with broadcast traffic 15 ms
+# only shortened the average active window from 56 to 48 ms, but it costs the panel nothing.
+CONFIG_ESP_WIFI_SLP_DEFAULT_MIN_ACTIVE_TIME=15
+# The mDNS timer only sends shared records (service browsing); the .local name is answered at
+# once. At the default 100 ms it woke the chip ten times a second.
+CONFIG_MDNS_TIMER_PERIOD_MS=500
