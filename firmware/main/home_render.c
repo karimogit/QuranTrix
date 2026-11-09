@@ -467,6 +467,11 @@ static void line(canvas_t *c, int x0, int y0, int x1, int y1, int p)
         }
     }
 }
+static void strike_h(canvas_t *c, int x0, int x1, int y, int p)
+{
+    line(c, x0, y, x1, y, p);
+    line(c, x0, y + 1, x1, y + 1, p);
+}
 static size_t bounded(const char *s, size_t cap)
 {
     size_t n = 0;
@@ -2945,8 +2950,8 @@ static void salah_tile(canvas_t *c, int x, int y, int w, int h, const char *name
     clip_aligned(c, x + 4, y + 8, w - 8, 16, 0, name_ink, name, 1);
     clip_aligned(c, x + 4, y + 28, w - 8, 22, 1, time_ink, when, 1);
     if (done) {
-        line(c, x + 8, y + 16, x + w - 8, y + 16, name_ink);
-        line(c, x + 8, y + 39, x + w - 8, y + 39, time_ink);
+        strike_h(c, x + 8, x + w - 8, y + 15, name_ink);
+        strike_h(c, x + 8, x + w - 8, y + 37, time_ink);
     }
 }
 
@@ -3003,8 +3008,8 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
             snprintf(name, sizeof name, "%s", home_salah_name(i));
             qurantrix_upper_box_title(name, js.upper_titles);
             salah_tile(&c, x, 32, tile, 56, name, when, salah.valid && salah.current == i,
-                       salah.valid && (mask & (1 << i)) != 0, (js.borders & QURAN_FRAME_TILES) != 0,
-                       ink.alert, ink.accent, ink.frame);
+                       (mask & (1 << i)) != 0, (js.borders & QURAN_FRAME_TILES) != 0, ink.alert,
+                       ink.accent, ink.frame);
             x += tile + gap;
         }
     }
@@ -3170,10 +3175,10 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
         qurantrix_upper_box_title(title, js.upper_titles);
         snprintf(status, sizeof status, "%s / %s", tr(c.lang, "Quran", "Quran"),
                  radio ? tr(c.lang, "ON", "WŁ") : tr(c.lang, "OFF", "WYŁ"));
-        const int title_h = 14, inset = 3, gap = 3, foot = 3;
+        const int title_h = 14, inset = 3, gap = 2, foot = 3;
         const int band_y = y + title_h + gap;
         const int band_h = h - title_h - gap - foot;
-        const int status_y = band_y + 1;
+        const int status_y = band_y;
         const int status_h = home_fonts[1].size + 2;
         if (radio) {
             rect(&c, x, y, w, h, ink.alert);

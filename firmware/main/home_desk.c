@@ -140,7 +140,7 @@ static void nfc_prepare_tag(void)
     i2c_del_master_bus(bus);
     nfc_rail(0);
 }
-static int current_prayer(void)
+static int current_prayer(int *today)
 {
     time_t now = time(NULL);
     home_config_t cfg;
@@ -150,8 +150,9 @@ static int current_prayer(void)
     qurantrix_settings_t js;
     home_salah_day_t day;
     home_lock();
-    clock_ok = home_runtime.time_valid && now >= 1704067200 && home_runtime.config.location_ready;
     cfg = home_runtime.config;
+    /* Match the dashboard: prayer tiles can use wall clock before SNTP marks time_valid. */
+    clock_ok = now >= 1704067200 && cfg.location_ready;
     home_unlock();
     if (!clock_ok || !home_tz_localtime(cfg.timezone, (int64_t)now, &local))
         return -1;
@@ -160,24 +161,38 @@ static int current_prayer(void)
     qurantrix_settings_get(&js);
     if (!home_salah_compute(cfg.latitude, cfg.longitude, off, &local,
                             js.wind_unit > 4 ? 0 : js.wind_unit,
-                            js.forecast_style > 1 ? 0 : js.forecast_style, true, &day) ||
-        !day.valid)
+                            js.forecast_style > 1 ? 0 : js.forecast_style, cfg.location_ready,
+                            &day) ||
+        !day.valid || day.current < 0 || day.current >= SALAH_COUNT)
         return -1;
+    if (today)
+        *today = (local.tm_year + 1900) * 1000 + local.tm_yday;
     return day.current;
 }
 static void nfc_count(void)
 {
     int64_t mono = esp_timer_get_time();
     int which;
+    int today = 0;
     if (mono < arm_at || mono - last_count_us < INT64_C(1500000))
         return;
-    which = current_prayer();
-    if (which >= 0 && which < SALAH_COUNT)
-        prayers |= 1 << which;
     last_count_us = mono;
-    prayer_save();
-    ESP_LOGI(TAG, "Prayer %s marked", which >= 0 ? home_salah_name(which) : "unknown");
+    which = current_prayer(&today);
     home_radio_click();
+    if (which < 0) {
+        ESP_LOGW(TAG, "NFC seen, prayer not marked");
+        return;
+    }
+    /* Stamp the day with the mark. A later midnight poll must not clear a tap it has not seen. */
+    home_lock();
+    if (prayer_day != today) {
+        prayers = 0;
+        prayer_day = today;
+    }
+    prayers |= 1 << which;
+    home_unlock();
+    prayer_save();
+    ESP_LOGI(TAG, "Prayer %s marked", home_salah_name(which));
     home_lock();
     if (!home_runtime.setup) {
         home_runtime.dirty = true;
@@ -301,16 +316,22 @@ int home_desk_poll(void)
         struct tm local;
         if (home_tz_localtime(zone, (int64_t)now, &local)) {
             int day = (local.tm_year + 1900) * 1000 + local.tm_yday;
+            int previous;
+            bool rolled = false;
+            home_lock();
+            previous = prayers;
             if (prayer_day != day) {
-                int previous = prayers;
                 if (prayer_day != 0)
                     prayers = 0;
                 prayer_day = day;
+                rolled = true;
+            }
+            home_unlock();
+            if (rolled)
                 prayer_save();
-                if (previous != prayers)
-                    event = 2;
-                if (event)
-                    ESP_LOGI(TAG, "Prayers cleared for a new day");
+            if (previous != prayers) {
+                event = 2;
+                ESP_LOGI(TAG, "Prayers cleared for a new day");
             }
         }
     }

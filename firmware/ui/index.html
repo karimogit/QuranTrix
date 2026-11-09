@@ -965,7 +965,9 @@ function drawPaperCanvas() {
       pvClip(ctx, x + 4, y + 8, tile - 8, 16, upper(SALAH_NAMES[i]), nameInk, fSm, 'center');
       pvClip(ctx, x + 4, y + 28, tile - 8, 20, when, timeInk, '600 13px system-ui', 'center');
       if (done) {
+        pvStrike(ctx, x + 8, y + 15, x + tile - 8, nameInk);
         pvStrike(ctx, x + 8, y + 16, x + tile - 8, nameInk);
+        pvStrike(ctx, x + 8, y + 37, x + tile - 8, timeInk);
         pvStrike(ctx, x + 8, y + 38, x + tile - 8, timeInk);
       }
       x += tile + gap;
@@ -1063,10 +1065,10 @@ function drawPaperCanvas() {
       pvTitleBar(ctx, x, y, w, inks.alert, upper('Radio'), fSm);
     } else
       pvTitleBar(ctx, x, y, w, inks.accent, upper('Radio'), fSm);
-    const titleH = 14, inset = 3, gap = 3, foot = 3;
+    const titleH = 14, inset = 3, gap = 2, foot = 3;
     const bandY = y + titleH + gap, bandH = h - titleH - gap - foot;
     pvFill(ctx, x + inset, bandY, w - 2 * inset, bandH, inks.paper);
-    pvClip(ctx, x + 8, bandY + 1, w - 16, 14, live ? live.textContent : (on ? 'Quran / ON' : 'Quran / OFF'), inks.body, fBody, 'center');
+    pvClip(ctx, x + 8, bandY, w - 16, 14, live ? live.textContent : (on ? 'Quran / ON' : 'Quran / OFF'), inks.body, fBody, 'center');
     if (boxed) pvFrame(ctx, x, y, w, h, 2, inks.frame);
   }
   document.getElementById('preview').style.background = inks.paper;
