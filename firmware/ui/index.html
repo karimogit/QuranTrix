@@ -965,10 +965,14 @@ function drawPaperCanvas() {
       pvClip(ctx, x + 4, y + 8, tile - 8, 16, upper(SALAH_NAMES[i]), nameInk, fSm, 'center');
       pvClip(ctx, x + 4, y + 28, tile - 8, 20, when, timeInk, '600 13px system-ui', 'center');
       if (done) {
-        pvStrike(ctx, x + 8, y + 15, x + tile - 8, nameInk);
-        pvStrike(ctx, x + 8, y + 16, x + tile - 8, nameInk);
-        pvStrike(ctx, x + 8, y + 37, x + tile - 8, timeInk);
-        pvStrike(ctx, x + 8, y + 38, x + tile - 8, timeInk);
+        const cutN = nameInk === INK[1] ? INK[0] : nameInk;
+        const cutT = timeInk === INK[1] ? INK[0] : timeInk;
+        pvStrike(ctx, x + 6, y + 14, x + tile - 6, cutN);
+        pvStrike(ctx, x + 6, y + 15, x + tile - 6, cutN);
+        pvStrike(ctx, x + 6, y + 16, x + tile - 6, cutN);
+        pvStrike(ctx, x + 6, y + 36, x + tile - 6, cutT);
+        pvStrike(ctx, x + 6, y + 37, x + tile - 6, cutT);
+        pvStrike(ctx, x + 6, y + 38, x + tile - 6, cutT);
       }
       x += tile + gap;
     }

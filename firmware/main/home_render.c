@@ -469,8 +469,10 @@ static void line(canvas_t *c, int x0, int y0, int x1, int y1, int p)
 }
 static void strike_h(canvas_t *c, int x0, int x1, int y, int p)
 {
+    /* Three pixels. A one-pixel line is lost in the red of the current tile. */
     line(c, x0, y, x1, y, p);
     line(c, x0, y + 1, x1, y + 1, p);
+    line(c, x0, y + 2, x1, y + 2, p);
 }
 static size_t bounded(const char *s, size_t cap)
 {
@@ -2950,8 +2952,12 @@ static void salah_tile(canvas_t *c, int x, int y, int w, int h, const char *name
     clip_aligned(c, x + 4, y + 8, w - 8, 16, 0, name_ink, name, 1);
     clip_aligned(c, x + 4, y + 28, w - 8, 22, 1, time_ink, when, 1);
     if (done) {
-        strike_h(c, x + 8, x + w - 8, y + 15, name_ink);
-        strike_h(c, x + 8, x + w - 8, y + 37, time_ink);
+        /* The current tile is filled, and its type is paper. A paper line
+         * sits in the same pigment as the letters, so the word is not crossed
+         * out. Black cuts the glyphs on that fill and still reads on the others. */
+        int cut = (name_ink == PAPER) ? BLACK : name_ink;
+        strike_h(c, x + 6, x + w - 6, y + 14, cut);
+        strike_h(c, x + 6, x + w - 6, y + 36, (time_ink == PAPER) ? BLACK : time_ink);
     }
 }
 

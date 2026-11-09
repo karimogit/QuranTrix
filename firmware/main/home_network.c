@@ -19,8 +19,9 @@
 #include <stdlib.h>
 #include <time.h>
 
-/* Beacons the station may sleep through between wake-ups (see esp_wifi_set_ps() below). */
-#define HOME_LISTEN_INTERVAL 3
+/* Wake for every beacon. Sleeping through beacons (listen interval 3, max modem)
+ * was dropping the association: the link looked connected, then it was gone. */
+#define HOME_LISTEN_INTERVAL 1
 /* Breath mode (see control_task). Background work - a fetch, the first clock sync - may keep the
  * radio on this long without anything in progress; after that it waits, so a router that is gone
  * cannot hold the radio on for good. */
@@ -68,6 +69,8 @@ static int64_t scan_started, scan_last;
 static uint32_t scan_result;
 static char wifi_error[40];
 static bool station_connecting;
+static int64_t connect_started;
+static int64_t connect_backoff_us = INT64_C(2000000);
 static uint32_t wifi_revision;
 static home_location_t location_state;
 typedef struct {
@@ -108,6 +111,8 @@ static void events(void *arg, esp_event_base_t base, int32_t id, void *data)
         }
         home_runtime.online = true;
         station_connecting = false;
+        connect_started = 0;
+        connect_backoff_us = INT64_C(2000000);
         wifi_error[0] = 0;
         snprintf(home_runtime.address, sizeof(home_runtime.address), IPSTR,
                  IP2STR(&event->ip_info.ip));
@@ -129,6 +134,7 @@ static void events(void *arg, esp_event_base_t base, int32_t id, void *data)
             return; /* intentional change of configured network */
         }
         station_connecting = false;
+        connect_started = 0;
         if (event->reason == WIFI_REASON_AUTH_FAIL ||
             event->reason == WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT ||
             event->reason == WIFI_REASON_HANDSHAKE_TIMEOUT)
@@ -137,7 +143,11 @@ static void events(void *arg, esp_event_base_t base, int32_t id, void *data)
             strcpy(wifi_error, "network_not_found");
         else
             strcpy(wifi_error, "connection_lost");
-        next_connect = esp_timer_get_time() + INT64_C(15000000);
+        if (connect_backoff_us < INT64_C(2000000))
+            connect_backoff_us = INT64_C(2000000);
+        next_connect = esp_timer_get_time() + connect_backoff_us;
+        connect_backoff_us = connect_backoff_us * 2 > INT64_C(30000000) ? INT64_C(30000000)
+                                                                       : connect_backoff_us * 2;
         home_unlock();
         ESP_LOGW(TAG, "Station offline (reason %d: %s); retry scheduled", event->reason, wifi_error);
     }
@@ -411,18 +421,13 @@ esp_err_t home_network_start(void)
         return e;
     if ((e = esp_wifi_start()) != ESP_OK)
         return e;
-    /* MAX_MODEM with a listen interval of three beacons, set explicitly rather than left to the
-     * IDF default, which can change under us with the next IDF release. With MIN_MODEM the Wi-Fi
-     * driver woke about seven times a second and held APB_FREQ_MAX about 50 ms each time: that
-     * lock outranks light sleep and kept the chip awake about a third of the time, whatever our
-     * own code did. With every third beacon it wakes about three times a second and the share
-     * falls to under a fifth: the chip is free to sleep about 80 % of the time. The cost is latency
-     * for frames the access point buffers, multicast mDNS included: measured, the panel still
-     * answers in well under a second and quran-xxxx.local still resolves. A longer interval would
-     * save more but risks both, so it stays at three. */
-    esp_err_t ps = esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
+    /* Min modem sleeps between beacons but still hears every one. Max modem, with a
+     * listen interval of three, was missing beacons and the router was dropping us. */
+    esp_err_t ps = esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
     if (ps != ESP_OK)
         ESP_LOGW(TAG, "Wi-Fi power save not set: %s", esp_err_to_name(ps));
+    if (esp_wifi_set_inactive_time(WIFI_IF_STA, 15) != ESP_OK)
+        ESP_LOGW(TAG, "Wi-Fi inactive time not set");
     started = true;
     radio_on = true;
     esp_sntp_config_t ntp = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
@@ -453,7 +458,14 @@ void home_network_apply(void)
     home_unlock();
     if (!has_ssid)
         return;
-    config.sta.listen_interval = HOME_LISTEN_INTERVAL; /* see the comment at esp_wifi_set_ps() */
+    /* The disconnect event from a network we are already on arrives after this returns.
+     * Mark the attempt first so that leave is not stored as a failed join. */
+    home_lock();
+    station_connecting = true;
+    connect_started = esp_timer_get_time();
+    home_unlock();
+    config.sta.listen_interval = HOME_LISTEN_INTERVAL;
+    config.sta.failure_retry_cnt = 3;
     config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
     config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN; /* every channel, then the strongest match */
     config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
@@ -552,8 +564,9 @@ static void control_task(void *unused)
         if (!on && want && mono - off_at >= HOME_OFF_MIN_US) {
             radio_on = true;
             station_connecting = has_ssid && !pending;
+            connect_started = mono;
             wifi_error[0] = 0;
-            next_connect = pending ? mono : mono + INT64_C(30000000);
+            next_connect = pending ? mono : mono + INT64_C(20000000);
         }
         bool turn_on = !on && radio_on;
         home_unlock();
@@ -591,7 +604,8 @@ static void control_task(void *unused)
                 ESP_LOGW(TAG, "Radio start failed: %s", esp_err_to_name(e));
                 continue;
             }
-            esp_wifi_set_ps(home_radio_on() ? WIFI_PS_NONE : WIFI_PS_MAX_MODEM);
+            esp_wifi_set_ps(home_radio_on() ? WIFI_PS_NONE : WIFI_PS_MIN_MODEM);
+            esp_wifi_set_inactive_time(WIFI_IF_STA, 15);
             if (has_ssid && !pending)
                 e = esp_wifi_connect();
             ESP_LOGI(TAG, "Radio on: %s", esp_err_to_name(e));
@@ -611,11 +625,25 @@ static void control_task(void *unused)
         if (pending && !scanning && mono >= reconnect_at) {
             home_network_apply();
         } else if (!pending && !scanning && !online && has_ssid && mono >= reconnect_at) {
-            esp_err_t e = esp_wifi_connect();
+            bool connecting;
+            int64_t started;
             home_lock();
-            station_connecting = e == ESP_OK;
-            next_connect = mono + INT64_C(30000000);
+            connecting = station_connecting;
+            started = connect_started;
             home_unlock();
+            /* A second connect() while the first handshake is still going aborts it. */
+            if (!(connecting && started && mono - started < INT64_C(20000000))) {
+                if (connecting)
+                    esp_wifi_disconnect();
+                esp_err_t e = esp_wifi_connect();
+                home_lock();
+                station_connecting = e == ESP_OK;
+                connect_started = mono;
+                next_connect = mono + INT64_C(20000000);
+                home_unlock();
+                if (e != ESP_OK)
+                    ESP_LOGW(TAG, "Reconnect failed: %s", esp_err_to_name(e));
+            }
         }
     }
 }
