@@ -3128,12 +3128,10 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
         if (radio) {
             rect(&c, x, y, w, h, ink.alert);
             section_title_bar(&c, x, y, w, ink.alert, 6, title);
-            rect(&c, x + 3, y + 17, w - 6, h - 20, PAPER);
-            clip_aligned(&c, x + 8, y + 18, w - 16, 16, 1, ink.body, status, 0);
-        } else {
+        } else
             section_title_bar(&c, x, y, w, ink.accent, 6, title);
-            clip_aligned(&c, x + 8, y + 18, w - 16, 16, 1, ink.body, status, 0);
-        }
+        rect(&c, x + 3, y + 17, w - 6, h - 20, PAPER);
+        clip_aligned(&c, x + 8, y + 19, w - 16, h - 22, 1, ink.body, status, 1);
         if (boxed)
             frame_rect(&c, x, y, w, h, 2, ink.frame);
     }

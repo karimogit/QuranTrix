@@ -697,7 +697,7 @@ static esp_err_t api_inner(httpd_req_t *r)
         }
         if (esp_timer_get_time() >= home_runtime.pair_until || pair_attempts >= 5) {
             home_unlock();
-            result = error(r, "429 Too Many Requests", "Double-tap the round button to open setup again");
+            result = error(r, "429 Too Many Requests", "Hold the round button ~2 s to open setup again");
             goto done;
         }
         volatile unsigned diff = 0;

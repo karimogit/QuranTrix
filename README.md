@@ -10,7 +10,7 @@ A dashboard for Quran radio, prayer times, Islamic holidays, Ramadan schedules, 
 
 ## Setup
 
-Double-tap the round button. The display opens a setup window for about five minutes and shows a pairing code.
+Hold the round button for about two seconds. The display opens a setup window for about five minutes and shows a pairing code. Hold again while it is open to close it early.
 
 1. Join the Wi-Fi network **QuranTrix-Setup**.
 2. Open `http://192.168.4.1`.
@@ -18,7 +18,7 @@ Double-tap the round button. The display opens a setup window for about five min
 
 The page stays on that code until the phone is paired. Then it opens the rest of the settings. A phone that already paired skips the code. From there you can save the home Wi-Fi network, search for a place, and change the dashboard.
 
-**Place search** uses Open-Meteo. The desk searches for you when it is on home Wi‑Fi with internet (`GET /api/geocode`). If the desk is still on setup Wi‑Fi only, search uses your phone’s internet instead. **Offline:** choose **Time zone**, enter **latitude** and **longitude**, and tap **Save coordinates** (the place name field is optional).
+**Place search** uses Open-Meteo. The desk searches for you when it is on home Wi‑Fi with internet (`GET /api/geocode`). If the desk is still on setup Wi‑Fi only, search uses your phone’s internet instead. **Offline:** pick a city from the built-in list (time zone and coordinates are filled in), or choose **Time zone** and tap **Save coordinates** with latitude and longitude.
 
 Pairing tokens live in the device’s `home_nvs` storage, so they survive an application flash. The desk remembers up to four phones. Pairing on **QuranTrix-Setup** (`192.168.4.1`) clears older tokens and keeps only this phone. Pairing later on your home network adds another phone, up to the limit of four.
 
@@ -40,8 +40,8 @@ The firmware **cannot detect** which panel is installed. **Auto** assumes **NOTE
 | Control | Action |
 | --- | --- |
 | Round button, 1 tap | Radio on / off |
-| Round button, 2 taps | Open setup |
-| Round button, 3 taps | Refresh the screen only |
+| Round button, hold ~2 s | Open setup (hold again to close) |
+| Round button, 3 quick taps | Refresh the screen only |
 | Side Up / Down, short | Volume |
 | Side Up / Down, hold (~2 s) | Next / previous station |
 | Side Up + Down together, hold (~3.5 s) | Restart the device |
