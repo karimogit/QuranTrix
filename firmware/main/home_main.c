@@ -11,6 +11,7 @@
 #include "home_power.h"
 #include "home_store.h"
 #include "home_wake.h"
+#include "home_salah.h"
 #include "driver/gpio.h"
 #include "esp_timer.h"
 #include "esp_random.h"
@@ -495,6 +496,8 @@ static home_config_t *loop_c;
 static home_data_t *loop_d;
 static uint8_t *loop_work;
 static int64_t loop_last_status, loop_last_minute;
+static bool prayer_paint;
+static bool prayer_minute_seen;
 static bool loop_drew_setup; /* the picture on the display is the setup card */
 static bool loop_have_hash;
 static uint8_t loop_last_hash[32];
@@ -665,7 +668,38 @@ void home_loop_step(void)
         }
     }
     if (valid && now / 60 != loop_last_minute) {
+        /* The first minute the clock is known is not a prayer. A boot during that minute
+         * must not play a call that already started. */
+        bool minute_edge = prayer_minute_seen;
+        prayer_minute_seen = true;
         loop_last_minute = now / 60;
+        if (minute_edge && c->location_ready) {
+            int now_m = local.tm_hour * 60 + local.tm_min;
+            home_salah_day_t salah_now;
+            qurantrix_settings_t js;
+            int32_t off = 0;
+            qurantrix_settings_get(&js);
+            home_tz_offset_at(c->timezone, now, &off, NULL);
+            if (home_salah_compute(c->latitude, c->longitude, off, &local,
+                                   js.wind_unit > 4 ? 0 : js.wind_unit,
+                                   js.forecast_style > 1 ? 0 : js.forecast_style, true,
+                                   &salah_now) &&
+                salah_now.valid) {
+                for (int i = 0; i < SALAH_COUNT; i++) {
+                    if (salah_now.minute[i] != now_m)
+                        continue;
+                    prayer_paint = true;
+                    home_lock();
+                    home_runtime.dirty = true;
+                    home_runtime.force_show = true;
+                    home_unlock();
+                    ESP_LOGI(TAG, "Prayer time %d", i);
+                    if (js.adhan)
+                        home_radio_adhan();
+                    break;
+                }
+            }
+        }
         home_lock();
         /* Counters for the "device" card: minutes awake, the first start we know of, and one
          * battery reading a day. Written to NVS every 30 minutes, so the flash sees little. */
@@ -778,8 +812,13 @@ void home_loop_step(void)
      * coming back - would redraw the card, differently every time, for the whole two minutes
      * of its window (16.09, Tomek: "why does it refresh all the time"). The flag waits and
      * the screen is drawn once, when the card goes away. */
-    /* A weather tick must not flash the paper in the middle of a song. NFC, coffee, and the
-     * round button set force_show, and those still redraw (including during quiet hours). */
+    /* A weather tick must not flash the paper in the middle of a song. NFC, the radio, and the
+     * round button set force_show, and those still redraw (including during quiet hours).
+     * A prayer minute does too, so Fajr still updates the paper. */
+    if (prayer_paint) {
+        dirty = true;
+        force = true;
+    }
     bool hold_paper = home_desk_radio() && !force && loop_have_hash && !setup && !info_open;
     if (!setup && !info_open && dirty && !force && loop_have_hash && valid) {
         if (home_desk_night_quiet(&local) || !home_desk_periodic_due(mono)) {
@@ -799,6 +838,7 @@ void home_loop_step(void)
             home_unlock();
             return;
         }
+        prayer_paint = false;
         home_runtime.dirty = false;
         home_runtime.phase = 1;
         home_runtime.pending_screen = screen;

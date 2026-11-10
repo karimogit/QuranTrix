@@ -12,4 +12,6 @@ const char *home_radio_station_label(void);
 void home_radio_volume_step(int delta);
 /* A short tick. While the radio is playing it is mixed in; otherwise the speaker plays it alone. */
 void home_radio_click(void);
+/* The call to prayer, once. Skipped while the radio is already playing. */
+void home_radio_adhan(void);
 #endif

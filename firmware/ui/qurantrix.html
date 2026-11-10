@@ -294,6 +294,8 @@
       <select id="asrMadhab" hidden><option value="0">Shafi</option><option value="1">Hanafi</option></select>
       <div class="seg" data-for="asrMadhab"><button type="button" data-v="0">Shafi</button><button type="button" data-v="1">Hanafi</button></div>
     </label>
+    <label class="block"><span data-i18n="adhan">Adhan at prayer time</span><span class="switch"><input type="checkbox" id="adhan"><i></i></span></label>
+    <p class="hint" data-i18n="adhanHint">Off until you turn it on. The speaker then plays the call at each prayer, and the paper refreshes at that minute. It stays quiet while the radio is already on.</p>
     <label class="field"><span data-i18n="holidayCal">Holiday calendar</span>
       <textarea id="calendarUrl" rows="3" maxlength="512" spellcheck="false"></textarea>
     </label>
@@ -767,16 +769,18 @@ function tzOffsetHours(tz) {
   } catch (e) {}
   return 0;
 }
-function previewSalahFallback() {
-  return {
-    minute: [353, 744, 874, 1017, 1128], sunrise: 462, sunset: 1017, valid: true, current: 1
-  };
+function previewSalahFallback(hr, mi) {
+  const minute = [353, 744, 874, 1017, 1128];
+  const now_m = (hr || 0) * 60 + (mi || 0);
+  let current = 0;
+  for (let i = 0; i < 5; i++) if (now_m >= minute[i]) current = i;
+  return { minute, sunrise: 462, sunset: 1017, valid: true, current };
 }
 function previewSalahCompute(lat, lon, y, m, d, hr, mi, method, madhab, located, tzName) {
   const out = { minute: [-1, -1, -1, -1, -1], sunrise: -1, sunset: -1, valid: false, current: 0 };
   const methods = [{ fajr: 18, isha: 17, after: 0 }, { fajr: 15, isha: 15, after: 0 }, { fajr: 19.5, isha: 17.5, after: 0 }, { fajr: 18.5, isha: 0, after: 90 }, { fajr: 18, isha: 18, after: 0 }];
   const meth = methods[method > 4 ? 0 : method] || methods[0];
-  if (!located) return previewSalahFallback();
+  if (!located) return previewSalahFallback(hr, mi);
   const { decl, eqt } = sunPosition(julian(y, m, d) - lon / 360);
   const tz = tzOffsetHours(tzName);
   const noon = wrap24(12 - eqt + tz - lon / 15);
@@ -950,7 +954,7 @@ function drawPaperCanvas() {
   const clock24 = document.getElementById('clock24').value === '1';
   const located = previewPlace.ready;
   let salah = previewSalahCompute(previewPlace.lat, previewPlace.lon, civil.y, civil.m, civil.d, civil.hr, civil.mi, method, madhab, located, tz);
-  if (!salah.valid) salah = previewSalahFallback();
+  if (!salah.valid) salah = previewSalahFallback(civil.hr, civil.mi);
   const fBody = '600 11px system-ui, sans-serif';
   const fBar = '700 12px system-ui, sans-serif';
   const fBig = '700 22px Georgia, serif';
@@ -1510,6 +1514,7 @@ async function load() {
     document.getElementById('upperTitles').checked = d.upper_titles !== false;
     document.getElementById('salahMethod').value = String(d.salah_method ?? d.wind_unit ?? 0);
     document.getElementById('asrMadhab').value = String(d.asr_madhab ?? d.forecast_style) === '1' ? '1' : '0';
+    document.getElementById('adhan').checked = !!d.adhan;
     document.getElementById('themePreset').value = d.theme_preset ?? 0;
     document.getElementById('panelModel').value = String(d.panel_model ?? 0);
     ['Bar','Accent','Alert','Hi','Lo'].forEach(k => {
@@ -1588,11 +1593,14 @@ function stampPlace(cfg, p) {
   cfg.longitude = lon;
   cfg.location_ready = true;
   const wanted = p.timezone || '';
-  const zone = deviceZone(wanted) ? wanted
-    : (deviceZone(document.getElementById('timezone').value) ? document.getElementById('timezone').value : '');
+  const sel = document.getElementById('timezone');
+  /* A city search can finish before the zone list loads. Trust the city's zone then,
+   * instead of keeping whatever zone was already saved. */
+  const zone = (wanted && (sel.options.length === 0 || deviceZone(wanted))) ? wanted
+    : (deviceZone(sel.value) ? sel.value : '');
   if (zone) {
     cfg.timezone = zone;
-    document.getElementById('timezone').value = zone;
+    if ([...sel.options].some(o => o.value === zone)) sel.value = zone;
   }
   previewPlace = { lat, lon, ready: true, name };
   document.getElementById('place').value = name;
@@ -1718,10 +1726,10 @@ document.getElementById('deskBtn').onclick = async () => {
     const cfg = await api('/api/config', { headers: hdr() });
     cfg.clock24 = document.getElementById('clock24').value === '1';
     const zone = document.getElementById('timezone').value;
-    if (zone && deviceZone(zone)) cfg.timezone = zone;
     const picked = placeToSave();
     if (picked) stampPlace(cfg, picked);
     else {
+      if (zone && deviceZone(zone)) cfg.timezone = zone;
       const lat = parseFloat(document.getElementById('manualLat').value);
       const lon = parseFloat(document.getElementById('manualLon').value);
       const placeLabel = fitPlaceName(document.getElementById('place').value.trim());
@@ -1746,6 +1754,7 @@ document.getElementById('deskBtn').onclick = async () => {
       upper_titles: document.getElementById('upperTitles').checked,
       salah_method: +document.getElementById('salahMethod').value,
       asr_madhab: +document.getElementById('asrMadhab').value,
+      adhan: document.getElementById('adhan').checked,
       borders: (document.getElementById('bFrameRamadan').checked ? 1 : 0) |
         (document.getElementById('bFrameSun').checked ? 2 : 0) |
         (document.getElementById('bFrameAsma').checked ? 4 : 0) |
@@ -1789,6 +1798,8 @@ const I18N = {
     blurb: 'A dashboard for Quran radio, prayer times, Islamic holidays, Ramadan schedules, Dua of the Day, and a daily reminder featuring one of the 99 Names of Allah.',
     blockPrayers: 'Prayers', blockRamadan: 'Ramadan', blockSun: 'Sun times', blockHoliday: 'Holiday', blockDua: 'Dua', blockAsma: '99 Names',
     salahMethod: 'Prayer method', asrSchool: 'Asr', holidayCal: 'Holiday calendar',
+    adhan: 'Adhan at prayer time',
+    adhanHint: 'Off until you turn it on. The speaker then plays the call at each prayer, and the paper refreshes at that minute. It stays quiet while the radio is already on.',
     holidayHint: 'A public Muslim holidays calendar. Paste another https iCal address to use that agenda instead.',
     borderPrayers: 'Prayers', borderRamadan: 'Ramadan', borderSun: 'Sun times', borderHoliday: 'Holiday', borderDua: 'Dua', borderAsma: '99 Names',
     setupTitle: 'Setup',

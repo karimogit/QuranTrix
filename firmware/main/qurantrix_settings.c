@@ -394,6 +394,7 @@ void qurantrix_settings_init(void)
         cached.panel_model = 0;
     if (cached.panel_model > 2)
         cached.panel_model = 0;
+    cached.adhan = cached.adhan == 1 ? 1 : 0;
     if (strcmp(cached.nfc_label, "COFFEE  ·  TAP") == 0 || strcmp(cached.nfc_label, "COFFEE") == 0)
         snprintf(cached.nfc_label, sizeof cached.nfc_label, "SALAH");
     for (int i = 0; i < cached.radio_count && i < QURANTRIX_RADIO_MAX; i++) {
@@ -468,6 +469,7 @@ esp_err_t qurantrix_settings_save(const qurantrix_settings_t *in)
     copy.wind_unit = copy.wind_unit > 4 ? 0 : copy.wind_unit;
     copy.theme_preset = copy.theme_preset > 7 ? 0 : copy.theme_preset;
     copy.brush = copy.brush > 2 ? 0 : copy.brush;
+    copy.adhan = copy.adhan ? 1 : 0;
     nvs_handle_t h;
     esp_err_t e = nvs_open_from_partition("home_nvs", "qurantrix", NVS_READWRITE, &h);
     if (e != ESP_OK)
@@ -566,6 +568,7 @@ cJSON *qurantrix_settings_json(void)
     cJSON_AddNumberToObject(j, "haiku_pick", s.haiku_pick);
     cJSON_AddItemToObject(j, "foot_order", u8_array(s.foot_order, QURANTRIX_FOOT_SLOTS));
     cJSON_AddNumberToObject(j, "panel_model", s.panel_model);
+    cJSON_AddBoolToObject(j, "adhan", s.adhan != 0);
     cJSON_AddNumberToObject(j, "metric_visible", s.metric_visible);
     cJSON_AddNumberToObject(j, "block_visible", s.block_visible);
     cJSON_AddItemToObject(j, "toolbar_order", u8_array(s.bar_order, QURANTRIX_BAR_SLOTS));
@@ -675,6 +678,8 @@ bool qurantrix_settings_decode(const char *json, size_t len, qurantrix_settings_
     }
     if (s.panel_model > 2)
         s.panel_model = 0;
+    if ((v = cJSON_GetObjectItem(j, "adhan")))
+        s.adhan = cJSON_IsTrue(v) ? 1 : 0;
     cJSON *pl = cJSON_GetObjectItem(j, "playlist");
     if (cJSON_IsString(pl) && pl->valuestring)
         qurantrix_settings_import_playlist(pl->valuestring, &s);
