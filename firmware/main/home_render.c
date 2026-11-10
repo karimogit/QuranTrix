@@ -2934,13 +2934,15 @@ static void salah_tile(canvas_t *c, int x, int y, int w, int h, const char *name
     int name_ink = body;
     int time_ink = body;
     /* Yellow is a tap. Red is a prayer that already passed without one. The current prayer
-     * and the ones still ahead stay on the paper until a tap. */
+     * and the ones still ahead stay on the paper until a tap. The current tile always
+     * keeps a border: red on paper, black once the tap fills it yellow. */
     if (fill == YELLOW || fill == RED) {
         rect(c, x, y, w, h, fill);
         name_ink = time_ink = ink_on_fill(fill);
-    } else if (current)
-        frame_rect(c, x, y, w, h, 4, alert);
-    else if (boxed)
+    }
+    if (current)
+        frame_rect(c, x, y, w, h, 4, fill == YELLOW ? BLACK : alert);
+    else if (fill != YELLOW && fill != RED && boxed)
         frame_rect(c, x, y, w, h, 2, frame);
     clip_aligned(c, x + 4, y + 8, w - 8, 16, 0, name_ink, name, 1);
     clip_aligned(c, x + 4, y + 28, w - 8, 22, 1, time_ink, when, 1);

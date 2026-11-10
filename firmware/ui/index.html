@@ -304,7 +304,7 @@
 
   <section>
     <div class="head"><h2 data-i18n="paperTitle">On the paper</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-paper" aria-label="Help">?</button></div>
-    <p class="helptext" id="help-paper" hidden data-i18n="helpPaper">The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and fills that prayer yellow. A prayer that has passed without a tap is red. The current prayer and the ones still ahead have no background until a tap.</p>
+    <p class="helptext" id="help-paper" hidden data-i18n="helpPaper">The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and fills that prayer yellow. A prayer that has passed without a tap is red. The current prayer and the ones still ahead have no background until a tap. The current one always has a border: red while it is empty, black once it is yellow.</p>
     <p class="hint" data-i18n="paperHint">Turn a block off. The top bar stays.</p>
     <div class="blocks">
       <label class="block"><span data-i18n="blockPrayers">Prayers</span><span class="switch"><input type="checkbox" id="bPrayers" checked><i></i></span></label>
@@ -1002,8 +1002,9 @@ function drawPaperCanvas() {
         const fill = tapped ? INK[2] : INK[3];
         pvFill(ctx, x, y, tile, h, fill);
         nameInk = timeInk = (fill === INK[1] || fill === INK[2]) ? INK[0] : INK[1];
-      } else if (current) pvFrame(ctx, x, y, tile, h, 4, inks.alert);
-      else if (boxed) pvFrame(ctx, x, y, tile, h, 2, inks.frame);
+      }
+      if (current) pvFrame(ctx, x, y, tile, h, 4, tapped ? INK[0] : inks.alert);
+      else if (!tapped && !past && boxed) pvFrame(ctx, x, y, tile, h, 2, inks.frame);
       const when = fmtPrayer(salah.valid ? salah.minute[i] : -1, clock24);
       pvClip(ctx, x + 4, y + 8, tile - 8, 16, upper(SALAH_NAMES[i]), nameInk, fSm, 'center');
       pvClip(ctx, x + 4, y + 28, tile - 8, 20, when, timeInk, '600 13px system-ui', 'center');
@@ -1811,7 +1812,7 @@ const I18N = {
     helpPair: 'Hold the round button about two seconds. The paper shows six digits for about five minutes. Join QuranTrix-Setup and type the code here. Pairing on that network clears older phones and keeps this one. Up to four phones can be paired from your home network later.',
     helpWifi: 'The home network. After you save, the password stays on the device. This page does not keep it.',
     helpPlace: 'Prayer times use this place and its time zone. Search asks the desk first when it is on your home Wi‑Fi with internet, otherwise your phone. With no internet, pick a city from the built-in list or enter coordinates manually.',
-    helpPaper: 'The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and fills that prayer yellow. A prayer that has passed without a tap is red. The current prayer and the ones still ahead have no background until a tap.',
+    helpPaper: 'The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and fills that prayer yellow. A prayer that has passed without a tap is red. The current prayer and the ones still ahead have no background until a tap. The current one always has a border: red while it is empty, black once it is yellow.',
     helpTop: 'Weekday, date, time, place, Wi-Fi, and battery. Up moves an item toward the left. The clock follows the time zone. Choosing a place fills the zone in.',
     helpLook: 'Themes, texture, uppercase titles, and dark paper. Dark paper swaps black and paper. The sketch above matches the paper.',
     helpBorders: 'A frame around the prayers, the Ramadan count, sun times, the holiday, the dua, or the radio.',
