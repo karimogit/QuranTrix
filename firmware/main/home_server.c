@@ -10,6 +10,7 @@
 #include "home_wake.h"
 #include "qurantrix_product.h"
 #include "qurantrix_settings.h"
+#include "home_desk.h"
 #include "esp_http_server.h"
 #include "esp_timer.h"
 #include "esp_random.h"
@@ -572,8 +573,16 @@ static esp_err_t api_inner(httpd_req_t *r)
             home_unlock();
             return json_send(r, j);
         }
-        if (!strcmp(path, "/api/desk"))
-            return json_send(r, qurantrix_settings_json());
+        if (!strcmp(path, "/api/desk")) {
+            cJSON *j = qurantrix_settings_json();
+            int mask;
+            home_lock();
+            mask = home_desk_prayers() & 0x1f;
+            home_unlock();
+            if (j)
+                cJSON_AddNumberToObject(j, "prayers", mask);
+            return json_send(r, j);
+        }
         if (!strcmp(path, "/api/frame"))
             return preview(r, NULL, true, false);
         if (!strcmp(path, "/api/share-frame"))

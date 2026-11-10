@@ -469,11 +469,10 @@ static void line(canvas_t *c, int x0, int y0, int x1, int y1, int p)
 }
 static void tile_check(canvas_t *c, int x, int y, int w, int h, int p)
 {
-    int cx = x + w / 2;
-    int cy = y + h / 2 + 6;
-    /* Short down stroke, then long up stroke — reads on e-ink where thin lines do not. */
-    int s0x = cx - 9, s0y = cy - 1, s1x = cx - 2, s1y = cy + 7;
-    int s2x = cx + 11, s2y = cy - 9;
+    /* Lower-right corner, clear of the centered name and time. */
+    int s0x = x + w - 16, s0y = y + h - 14;
+    int s1x = x + w - 10, s1y = y + h - 7;
+    int s2x = x + w - 4, s2y = y + h - 18;
     for (int t = -2; t <= 2; t++) {
         line(c, s0x + t, s0y, s1x + t, s1y, p);
         line(c, s0x, s0y + t, s1x, s1y + t, p);

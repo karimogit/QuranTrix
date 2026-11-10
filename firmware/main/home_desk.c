@@ -151,8 +151,8 @@ static int current_prayer(int *today)
     home_salah_day_t day;
     home_lock();
     cfg = home_runtime.config;
-    /* Match the dashboard: wall clock and place, not SNTP time_valid alone. */
-    clock_ok = now > 0;
+    /* Same gate as the dashboard: a 2024+ clock and a saved place. */
+    clock_ok = now >= 1704067200 && cfg.location_ready;
     home_unlock();
     if (!clock_ok || !home_tz_localtime(cfg.timezone, (int64_t)now, &local))
         return -1;
@@ -182,24 +182,23 @@ static void nfc_count(void)
         ESP_LOGW(TAG, "NFC seen, prayer not marked");
         return;
     }
-    home_radio_click();
-    /* Stamp the day with the mark. A later midnight poll must not clear a tap it has not seen. */
+    /* Stamp the day with the mark. Save before unlock so a midnight clear cannot
+     * be overwritten by a snapshot taken earlier. */
     home_lock();
     if (prayer_day != today) {
         prayers = 0;
         prayer_day = today;
     }
     prayers |= 1 << which;
-    home_unlock();
     prayer_save();
-    ESP_LOGI(TAG, "Prayer %s marked", home_salah_name(which));
-    home_lock();
     if (!home_runtime.setup) {
         home_runtime.dirty = true;
         home_runtime.request_id++;
         home_runtime.force_show = true;
     }
     home_unlock();
+    ESP_LOGI(TAG, "Prayer %s marked", home_salah_name(which));
+    home_radio_click();
     home_loop_poke();
 }
 static void nfc_task_fn(void *unused)
@@ -217,8 +216,10 @@ static void nfc_task_fn(void *unused)
             while (gpio_get_level(NFC_FD) == 0 && guard++ < 40)
                 vTaskDelay(pdMS_TO_TICKS(25));
         }
-        if (gpio_get_level(NFC_FD) != 0)
+        if (gpio_get_level(NFC_FD) != 0) {
+            gpio_set_intr_type(NFC_FD, GPIO_INTR_NEGEDGE);
             gpio_intr_enable(NFC_FD);
+        }
     }
 }
 void home_desk_init(void)
@@ -260,8 +261,10 @@ void home_desk_init(void)
     if (gpio_wakeup_enable(NFC_FD, GPIO_INTR_LOW_LEVEL) != ESP_OK)
         ESP_LOGW(TAG, "NFC field will not wake the chip");
     esp_sleep_enable_gpio_wakeup();
-    if (gpio_get_level(NFC_FD) != 0)
+    if (gpio_get_level(NFC_FD) != 0) {
+        gpio_set_intr_type(NFC_FD, GPIO_INTR_NEGEDGE);
         gpio_intr_enable(NFC_FD);
+    }
     ESP_LOGI(TAG, "Prayers %d, NFC field pin %s", prayers,
              gpio_get_level(NFC_FD) == 0 ? "low" : "resting");
 }
@@ -270,11 +273,12 @@ void home_desk_listen(void)
 {
     gpio_wakeup_enable(NFC_FD, GPIO_INTR_LOW_LEVEL);
     esp_sleep_enable_gpio_wakeup();
-    if (gpio_get_level(NFC_FD) != 0)
+    if (gpio_get_level(NFC_FD) != 0) {
+        gpio_set_intr_type(NFC_FD, GPIO_INTR_NEGEDGE);
         gpio_intr_enable(NFC_FD);
+    }
 }
 int home_desk_prayers(void) { return prayers; }
-int home_desk_coffee(void) { return prayers; }
 bool home_desk_button_blocked(void)
 {
     if (gpio_get_level(NFC_FD) == 0)
@@ -318,6 +322,7 @@ int home_desk_poll(void)
             int day = (local.tm_year + 1900) * 1000 + local.tm_yday;
             int previous;
             bool rolled = false;
+            bool changed = false;
             home_lock();
             previous = prayers;
             if (prayer_day != day) {
@@ -326,10 +331,11 @@ int home_desk_poll(void)
                 prayer_day = day;
                 rolled = true;
             }
-            home_unlock();
             if (rolled)
                 prayer_save();
-            if (previous != prayers) {
+            changed = prayers != previous;
+            home_unlock();
+            if (changed) {
                 event = 2;
                 ESP_LOGI(TAG, "Prayers cleared for a new day");
             }

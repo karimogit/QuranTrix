@@ -46,6 +46,7 @@ static int click_phase;
 static int click_rate = 44100;
 static TaskHandle_t radio_task;
 static TaskHandle_t click_task;
+static volatile bool click_pending;
 static SemaphoreHandle_t audio_mu;
 static bool radio_relaxed;
 static const audio_codec_data_if_t *codec_data;
@@ -1206,6 +1207,15 @@ static void radio_task_fn(void *unused)
     radio_run = false;
     vTaskDelete(NULL);
 }
+static void click_task_finish(void)
+{
+    click_task = NULL;
+    if (click_pending) {
+        click_pending = false;
+        home_radio_click();
+    }
+    vTaskDelete(NULL);
+}
 static void click_task_fn(void *unused)
 {
     (void)unused;
@@ -1214,8 +1224,7 @@ static void click_task_fn(void *unused)
     if (speaker_open) {
         click_left = chime_len(click_rate);
         click_phase = 0;
-        click_task = NULL;
-        vTaskDelete(NULL);
+        click_task_finish();
         return;
     }
     audio_lock();
@@ -1223,8 +1232,7 @@ static void click_task_fn(void *unused)
         click_left = chime_len(click_rate);
         click_phase = 0;
         audio_unlock();
-        click_task = NULL;
-        vTaskDelete(NULL);
+        click_task_finish();
         return;
     }
     /* Light sleep stops the speaker clock, and the tick then never comes out. Hold the
@@ -1247,8 +1255,7 @@ static void click_task_fn(void *unused)
     if (!radio_run)
         pm_for_audio(false);
     audio_unlock();
-    click_task = NULL;
-    vTaskDelete(NULL);
+    click_task_finish();
 }
 void home_radio_click(void)
 {
@@ -1257,8 +1264,10 @@ void home_radio_click(void)
         click_phase = 0;
         return;
     }
-    if (click_task)
+    if (click_task) {
+        click_pending = true;
         return;
+    }
     if (xTaskCreate(click_task_fn, "click", 12288, NULL, 6, &click_task) != pdPASS) {
         click_task = NULL;
         ESP_LOGW(TAG, "Click task was not created");

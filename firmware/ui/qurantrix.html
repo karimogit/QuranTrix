@@ -842,16 +842,17 @@ function pvClip(ctx, x, y, w, h, text, color, font, align) {
   ctx.restore();
 }
 function pvTileCheck(ctx, x, y, w, h, color) {
-  const cx = x + w / 2;
-  const cy = y + h / 2 + 6;
+  const ax = x + w - 16, ay = y + h - 14;
+  const bx = x + w - 10, by = y + h - 7;
+  const cx = x + w - 4, cy = y + h - 18;
   ctx.strokeStyle = color;
   ctx.lineWidth = 5;
   ctx.lineCap = 'square';
   ctx.lineJoin = 'miter';
   ctx.beginPath();
-  ctx.moveTo(cx - 9, cy - 1);
-  ctx.lineTo(cx - 2, cy + 7);
-  ctx.lineTo(cx + 11, cy - 9);
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(bx, by);
+  ctx.lineTo(cx, cy);
   ctx.stroke();
 }
 function pvWifi(ctx, x, y, color) {
@@ -1487,6 +1488,7 @@ async function load() {
     document.getElementById('bFrameAsma').checked = !!(frames & 4);
     setStations(d.radios || []);
     fillOfflinePlaces();
+    paperPrayerMask = Number.isFinite(+d.prayers) ? (+d.prayers & 31) : 0;
     paint();
     status(t('loaded'), true);
   } catch (e) {

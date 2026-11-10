@@ -9,7 +9,6 @@ void home_desk_listen(void);
 int home_desk_poll(void);
 /* Bit i is set once prayer i has been tapped off today. */
 int home_desk_prayers(void);
-int home_desk_coffee(void);
 /* A phone is on the tag, or just was. The round button must not start or stop the music. */
 bool home_desk_button_blocked(void);
 bool home_desk_radio(void);
