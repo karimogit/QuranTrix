@@ -151,8 +151,8 @@ static int current_prayer(int *today)
     home_salah_day_t day;
     home_lock();
     cfg = home_runtime.config;
-    /* Match the dashboard: prayer tiles can use wall clock before SNTP marks time_valid. */
-    clock_ok = now >= 1704067200 && cfg.location_ready;
+    /* Match the dashboard: wall clock and place, not SNTP time_valid alone. */
+    clock_ok = now > 0;
     home_unlock();
     if (!clock_ok || !home_tz_localtime(cfg.timezone, (int64_t)now, &local))
         return -1;
@@ -178,11 +178,11 @@ static void nfc_count(void)
         return;
     last_count_us = mono;
     which = current_prayer(&today);
-    home_radio_click();
     if (which < 0) {
         ESP_LOGW(TAG, "NFC seen, prayer not marked");
         return;
     }
+    home_radio_click();
     /* Stamp the day with the mark. A later midnight poll must not clear a tap it has not seen. */
     home_lock();
     if (prayer_day != today) {

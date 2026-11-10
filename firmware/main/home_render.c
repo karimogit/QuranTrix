@@ -467,17 +467,18 @@ static void line(canvas_t *c, int x0, int y0, int x1, int y1, int p)
         }
     }
 }
-static void tile_x(canvas_t *c, int x, int y, int w, int h, int p)
+static void tile_check(canvas_t *c, int x, int y, int w, int h, int p)
 {
-    const int pad = 3;
-    int x0 = x + pad, y0 = y + pad;
-    int x1 = x + w - pad - 1, y1 = y + h - pad - 1;
-    /* A bold X reads on e-ink; thin strike-through lines vanish on red and yellow. */
+    int cx = x + w / 2;
+    int cy = y + h / 2 + 6;
+    /* Short down stroke, then long up stroke — reads on e-ink where thin lines do not. */
+    int s0x = cx - 9, s0y = cy - 1, s1x = cx - 2, s1y = cy + 7;
+    int s2x = cx + 11, s2y = cy - 9;
     for (int t = -2; t <= 2; t++) {
-        line(c, x0 + t, y0, x1 + t, y1, p);
-        line(c, x0, y0 + t, x1, y1 + t, p);
-        line(c, x1 + t, y0, x0 + t, y1, p);
-        line(c, x1, y0 + t, x0, y1 + t, p);
+        line(c, s0x + t, s0y, s1x + t, s1y, p);
+        line(c, s0x, s0y + t, s1x, s1y + t, p);
+        line(c, s1x + t, s1y, s2x + t, s2y, p);
+        line(c, s1x, s1y + t, s2x, s2y + t, p);
     }
 }
 static size_t bounded(const char *s, size_t cap)
@@ -2960,7 +2961,7 @@ static void salah_tile(canvas_t *c, int x, int y, int w, int h, const char *name
     if (done) {
         int fill = current ? alert : accent;
         int cut = (fill == YELLOW || fill == PAPER) ? BLACK : PAPER;
-        tile_x(c, x, y, w, h, cut);
+        tile_check(c, x, y, w, h, cut);
     }
 }
 

@@ -53,12 +53,12 @@ The firmware **cannot detect** which panel is installed. **Auto** assumes **NOTE
 | Side Up + Down together, hold (~3.5 s) | Restart the device |
 | NFC tap | Check off the current prayer |
 
-An NFC tap checks off the prayer that is current. A chime plays, and that prayer is marked with a bold X. The marks clear at local midnight. The paper redraws on its own at most every four hours, and not between 00:00 and 06:00 local time. A prayer tap, the radio, setup, and a triple-tap still refresh.
+An NFC tap checks off the prayer that is current. A chime plays, and that prayer is marked with a check. The marks clear at local midnight. The paper redraws on its own at most every four hours, and not between 00:00 and 06:00 local time. A prayer tap, the radio, setup, and a triple-tap still refresh.
 
 ## Features
 
 - **Top bar:** weekday, date, time, place, Wi-Fi, and battery. Each one can be shown or hidden, and the row can be reordered. The clock follows the place’s time zone. When the time sits next to the place, a dash separates them. The date can be a civil format, or the Hijri date, such as 28 Jumada I 1448.
-- **Prayers:** Fajr, Dhuhr, Asr, Maghrib, and Isha. The current one is filled. An NFC tap checks that prayer off and marks it with a bold X. Times are calculated on the device from the saved place. The method sets Fajr and Isha: Muslim World League, ISNA, Egyptian, Umm al-Qura (Makkah), or the University of Karachi. Asr follows the Shafi or Hanafi school.
+- **Prayers:** Fajr, Dhuhr, Asr, Maghrib, and Isha. The current one is filled. An NFC tap checks that prayer off and marks it with a check. Times are calculated on the device from the saved place. The method sets Fajr and Isha: Muslim World League, ISNA, Egyptian, Umm al-Qura (Makkah), or the University of Karachi. Asr follows the Shafi or Hanafi school.
 - **Ramadan:** days until Ramadan, or days left while it is Ramadan, with the Hijri date. It shares one row with sun times.
 - **Sun times:** sunrise and sunset, or Suhoor and Iftar stacked during Ramadan.
 - **Holiday:** the next Islamic holiday. Today is filled, and a holiday within two weeks uses the accent. The line follows a public Muslim holidays calendar (Google’s Islamic holiday agenda, or another https iCal address). Until that calendar arrives, the paper uses its built-in dates.

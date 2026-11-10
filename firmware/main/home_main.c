@@ -778,8 +778,8 @@ void home_loop_step(void)
      * coming back - would redraw the card, differently every time, for the whole two minutes
      * of its window (16.09, Tomek: "why does it refresh all the time"). The flag waits and
      * the screen is drawn once, when the card goes away. */
-    /* A weather tick must not flash the paper in the middle of a song. Coffee and the
-     * round button set force_show, and those still redraw. */
+    /* A weather tick must not flash the paper in the middle of a song. NFC, coffee, and the
+     * round button set force_show, and those still redraw (including during quiet hours). */
     bool hold_paper = home_desk_radio() && !force && loop_have_hash && !setup && !info_open;
     if (!setup && !info_open && dirty && !force && loop_have_hash && valid) {
         if (home_desk_night_quiet(&local) || !home_desk_periodic_due(mono)) {
@@ -790,7 +790,7 @@ void home_loop_step(void)
         }
     }
     if (phase != 3 && dirty && !hold_paper && !(info_open && loop_drew_info) &&
-        (!quiet || setup || leaving_setup || manual_request || mono < manual ||
+        (!quiet || setup || leaving_setup || manual_request || force || mono < manual ||
          !home_runtime.frame_valid)) {
         char ssid[33], pass[17], code[7], address[48];
         home_lock();
