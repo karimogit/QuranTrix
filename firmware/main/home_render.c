@@ -2929,16 +2929,17 @@ static void fmt_prayer_time(char *out, size_t len, int minute, bool clock24)
 }
 
 static void salah_tile(canvas_t *c, int x, int y, int w, int h, const char *name, const char *when,
-                       bool current, bool done, bool boxed, int alert, int accent, int frame)
+                       bool current, bool done, bool boxed, int alert, int body, int frame)
 {
-    int name_ink, time_ink;
-    int fill = done ? alert : accent;
-    rect(c, x, y, w, h, fill);
-    name_ink = time_ink = ink_on_fill(fill);
-    /* A prayed tile is a solid red field. The current one, still open, is only a red border. */
-    if (!done && current)
+    int name_ink = body;
+    int time_ink = body;
+    /* No fill until an NFC tap. The current prayer is only a red border until then. */
+    if (done) {
+        rect(c, x, y, w, h, alert);
+        name_ink = time_ink = ink_on_fill(alert);
+    } else if (current)
         frame_rect(c, x, y, w, h, 4, alert);
-    else if (!done && boxed)
+    else if (boxed)
         frame_rect(c, x, y, w, h, 2, frame);
     clip_aligned(c, x + 4, y + 8, w - 8, 16, 0, name_ink, name, 1);
     clip_aligned(c, x + 4, y + 28, w - 8, 22, 1, time_ink, when, 1);
@@ -2998,7 +2999,7 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
             qurantrix_upper_box_title(name, js.upper_titles);
             salah_tile(&c, x, 32, tile, 56, name, when, salah.valid && salah.current == i,
                        (mask & (1 << i)) != 0, (js.borders & QURAN_FRAME_TILES) != 0, ink.alert,
-                       ink.accent, ink.frame);
+                       ink.body, ink.frame);
             x += tile + gap;
         }
     }
