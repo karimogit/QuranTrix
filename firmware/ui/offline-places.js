@@ -88,23 +88,54 @@ function placeOptionLabel(p) {
   return p.name + (p.admin1 ? ', ' + p.admin1 : '');
 }
 
-function makePlaceOption(p) {
-  const label = placeOptionLabel(p);
-  const o = document.createElement('option');
-  o.value = JSON.stringify({
-    name: label,
-    latitude: p.latitude,
-    longitude: p.longitude,
-    timezone: p.timezone
-  });
-  o.textContent = label;
-  return o;
+function foldPlace(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-function fillOfflinePlaces() {
+function placeMatches(p, q) {
+  const words = foldPlace(q).split(/[^a-z0-9]+/).filter(Boolean);
+  if (!words.length) return true;
+  const hay = foldPlace([p.name, p.admin1, p.country].filter(Boolean).join(' '));
+  return words.every(w => hay.includes(w));
+}
+
+function makePlaceRow(p) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'place';
+  b.setAttribute('role', 'option');
+  /* City name only: the desk stores 64 bytes. The row text keeps the region. */
+  b.dataset.place = JSON.stringify({
+    name: p.name,
+    latitude: p.latitude,
+    longitude: p.longitude,
+    timezone: p.timezone || ''
+  });
+  b.textContent = placeOptionLabel(p);
+  return b;
+}
+
+function selectedPlace() {
   const sel = document.getElementById('places');
-  sel.innerHTML = '';
-  OFFLINE_PLACES.forEach(p => sel.appendChild(makePlaceOption(p)));
+  const b = sel && sel.querySelector('button.place[aria-selected="true"]');
+  if (!b) return null;
+  try { return JSON.parse(b.dataset.place); }
+  catch (e) { return null; }
+}
+
+function setPlaceList(rows, selectFirst) {
+  const sel = document.getElementById('places');
+  const nodes = rows.map(makePlaceRow);
+  if (selectFirst && nodes.length) nodes[0].setAttribute('aria-selected', 'true');
+  sel.replaceChildren.apply(sel, nodes);
+  return nodes.length;
+}
+
+function fillOfflinePlaces(query) {
+  const q = String(query || '').trim();
+  const rows = q ? OFFLINE_PLACES.filter(p => placeMatches(p, q)) : OFFLINE_PLACES;
+  const n = setPlaceList(rows, !!q && rows.length === 1);
   const btn = document.getElementById('offlinePlacesBtn');
-  if (btn) btn.hidden = true;
+  if (btn) btn.hidden = !q;
+  return n;
 }
