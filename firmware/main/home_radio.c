@@ -9,7 +9,6 @@
 #include "esp_codec_dev_defaults.h"
 #include "esp_crt_bundle.h"
 #include "esp_heap_caps.h"
-#include "esp_http_client.h"
 #include "esp_log.h"
 #include "esp_tls.h"
 #include "esp_pm.h"
@@ -139,11 +138,6 @@ void home_radio_station_step(int delta)
     station_idx = ((next % n) + n) % n;
     stream_cancel();
     ESP_LOGI(TAG, "Station %s", home_radio_station_label());
-}
-
-static bool stream_alive(uint32_t gen)
-{
-    return radio_run && !station_bump && stream_epoch == gen;
 }
 
 void home_radio_volume_step(int delta)
@@ -330,18 +324,59 @@ static void mix_click(int16_t *s, int frames)
         frames--;
     }
 }
+static void write_pcm(esp_codec_dev_handle_t dev, int16_t *pcm, int samples, int channels)
+{
+    static int16_t stereo[1152 * 2];
+    int16_t *out = pcm;
+    int bytes = samples * channels * (int)sizeof(int16_t);
+    if (channels == 1) {
+        if (samples > 1152)
+            samples = 1152;
+        for (int i = 0; i < samples; i++)
+            stereo[i * 2] = stereo[i * 2 + 1] = pcm[i];
+        out = stereo;
+        bytes = samples * 2 * (int)sizeof(int16_t);
+    }
+    mix_click(out, samples);
+    static int sent = -1;
+    if (sent != volume) {
+        esp_codec_dev_set_out_vol(dev, volume);
+        sent = volume;
+    }
+    esp_codec_dev_write(dev, out, bytes);
+}
+static int play_rate_for(int src)
+{
+    if (src < 8000 || src > 48000)
+        return 44100;
+    return src;
+}
+static int pack_play(const int16_t *pcm, int samples, int ch, int16_t *dst, int max_out)
+{
+    if (ch == 1) {
+        int out = samples < max_out ? samples : max_out;
+        for (int i = 0; i < out; i++) {
+            int16_t s = pcm[i];
+            dst[i * 2] = s;
+            dst[i * 2 + 1] = s;
+        }
+        return out;
+    }
+    int frames = samples < max_out ? samples : max_out;
+    memcpy(dst, pcm, (size_t)frames * 4);
+    return frames;
+}
 /* Compressed audio only. Core 0 fills this from the socket; core 1 decodes straight to I2S. */
 #define MP3_RING (128 * 1024)
 #define MP3_LOW (16 * 1024)
 static uint8_t *mp3_ring;
 static int mp3_r, mp3_w;
 static int stream_fd = -1;
-static volatile bool speaker_stalled;
 static volatile bool speaker_open;
 static TaskHandle_t net_task;
 static volatile bool net_run;
-static esp_http_client_handle_t net_client;
-static uint32_t net_stream_gen;
+static uint8_t body_hold[1536];
+static int body_hold_n;
 
 static int mp3_count(void)
 {
@@ -351,14 +386,8 @@ static int mp3_count(void)
 }
 static bool mp3_push(const uint8_t *src, int n)
 {
-    if (!mp3_ring || n <= 0 || !radio_run || stream_epoch != net_stream_gen)
-        return false;
-    int waits = 0;
-    while (stream_alive(net_stream_gen) && MP3_RING - 1 - mp3_count() < n) {
-        if (++waits > 24)
-            return false;
-        vTaskDelay(pdMS_TO_TICKS(2));
-    }
+    if (!mp3_ring || n <= 0 || !radio_run)
+        return true;
     if (MP3_RING - 1 - mp3_count() < n)
         return false;
     int w = __atomic_load_n(&mp3_w, __ATOMIC_ACQUIRE);
@@ -441,7 +470,7 @@ static void net_stop(void)
         stream_tls = NULL;
     }
     stream_decode_reset(false);
-    net_client = NULL;
+    body_hold_n = 0;
 }
 static void write_chime(esp_codec_dev_handle_t dev, int rate)
 {
@@ -466,95 +495,6 @@ static void write_chime(esp_codec_dev_handle_t dev, int rate)
  * is stripped. Bytes already past the HTTP header must count toward icy_left or titles land in
  * the decoder and the speaker hiccups about once a second. */
 static int icy_metaint, icy_left;
-static void icy_reset(void)
-{
-    icy_left = icy_metaint > 0 ? icy_metaint : 0;
-}
-static int net_read(esp_http_client_handle_t client, void *dst, int max);
-static int icy_sock_read(esp_http_client_handle_t client, uint8_t *dst, int need)
-{
-    char *p = (char *)dst;
-    int left = need, spins = 0;
-    while (left > 0 && radio_run) {
-        int n = net_read(client, p, left);
-        if (n < 0)
-            return -1;
-        if (n == 0) {
-            if (++spins > 40)
-                return -1;
-            vTaskDelay(pdMS_TO_TICKS(15));
-            continue;
-        }
-        spins = 0;
-        p += n;
-        left -= n;
-    }
-    return need - left;
-}
-static bool icy_skip_meta(esp_http_client_handle_t client, const uint8_t **mem, int *mem_left)
-{
-    unsigned char blen = 0;
-    if (mem && mem_left && *mem_left > 0) {
-        blen = **mem;
-        (*mem)++;
-        (*mem_left)--;
-    } else if (icy_sock_read(client, &blen, 1) != 1)
-        return false;
-    int meta = (int)blen * 16;
-    while (meta > 0 && radio_run) {
-        if (mem && mem_left && *mem_left > 0) {
-            int take = *mem_left;
-            if (take > meta)
-                take = meta;
-            *mem += take;
-            *mem_left -= take;
-            meta -= take;
-            continue;
-        }
-        char dump[64];
-        int take = meta > (int)sizeof dump ? (int)sizeof dump : meta;
-        if (icy_sock_read(client, (uint8_t *)dump, take) != take)
-            return false;
-        meta -= take;
-    }
-    icy_left = icy_metaint;
-    return true;
-}
-/* Turn raw Icecast bytes into clean MP3; bytes past the HTTP header count against icy_left. */
-static bool icy_feed(esp_http_client_handle_t client, const uint8_t *data, int len)
-{
-    int off = 0;
-    uint8_t chunk[1024];
-    const uint8_t *mem = data;
-    int mem_left = len;
-    while (off < len && radio_run && (client || stream_fd >= 0 || stream_tls)) {
-        if (icy_metaint <= 0) {
-            if (!mp3_push(data + off, len - off))
-                return false;
-            return true;
-        }
-        while (off < len && icy_left > 0) {
-            int take = icy_left;
-            if (take > len - off)
-                take = len - off;
-            if (take > (int)sizeof chunk)
-                take = (int)sizeof chunk;
-            memcpy(chunk, data + off, (size_t)take);
-            if (!mp3_push(chunk, take))
-                return false;
-            icy_left -= take;
-            off += take;
-            mem = data + off;
-            mem_left = len - off;
-        }
-        if (off >= len)
-            break;
-        if (!icy_skip_meta(client, &mem, &mem_left))
-            return false;
-        off = len - mem_left;
-    }
-    return true;
-}
 /* Bytes already pulled past the HTTP headers, then the TLS socket. */
 static int stream_raw(uint8_t *dst, int max)
 {
@@ -632,11 +572,18 @@ static int stream_pull(uint8_t *dst, int max)
     }
     return produced;
 }
-static int net_read(esp_http_client_handle_t client, void *dst, int max)
+static int net_read(void *dst, int max)
 {
-    (void)client;
     if (max <= 0)
         return 0;
+    if (body_hold_n > 0) {
+        int n = body_hold_n < max ? body_hold_n : max;
+        memcpy(dst, body_hold, (size_t)n);
+        body_hold_n -= n;
+        if (body_hold_n > 0)
+            memmove(body_hold, body_hold + n, (size_t)body_hold_n);
+        return n;
+    }
     if (stream_tls || stream_chunked || stream_push_pos < stream_push_len)
         return stream_pull((uint8_t *)dst, max);
     if (stream_fd >= 0) {
@@ -649,53 +596,80 @@ static int net_read(esp_http_client_handle_t client, void *dst, int max)
     }
     return -1;
 }
+static int read_exact(void *dst, int need)
+{
+    char *p = dst;
+    int left = need, spins = 0;
+    while (left > 0 && radio_run) {
+        int n = net_read(p, left);
+        if (n < 0)
+            return -1;
+        if (n == 0) {
+            if (++spins > 40)
+                return -1;
+            vTaskDelay(pdMS_TO_TICKS(20));
+            continue;
+        }
+        spins = 0;
+        p += n;
+        left -= n;
+    }
+    return need - left;
+}
+static int stream_read(char *dst, int max)
+{
+    if (icy_metaint <= 0)
+        return net_read(dst, max > 4096 ? 4096 : max);
+    if (icy_left <= 0) {
+        unsigned char blocks = 0;
+        if (read_exact(&blocks, 1) != 1)
+            return -1;
+        int meta = (int)blocks * 16;
+        while (meta > 0 && radio_run) {
+            char dump[32];
+            int take = meta > (int)sizeof dump ? (int)sizeof dump : meta;
+            if (read_exact(dump, take) != take)
+                return -1;
+            meta -= take;
+        }
+        icy_left = icy_metaint;
+    }
+    int cap = max > 4096 ? 4096 : max;
+    int take = cap < icy_left ? cap : icy_left;
+    if (take <= 0)
+        return 0;
+    int n = net_read(dst, take);
+    if (n > 0)
+        icy_left -= n;
+    return n;
+}
+/* Core 0, below Wi-Fi. Only clean MP3 lands in the ring. */
 static void net_task_fn(void *unused)
 {
     (void)unused;
-    esp_http_client_handle_t client = net_client;
-    uint8_t raw[2048];
-    while (stream_alive(net_stream_gen) && net_run && !speaker_stalled) {
-        int n = net_read(client, raw, (int)sizeof raw);
+    uint8_t buf[2048];
+    while (net_run && radio_run && !station_bump) {
+        if (!mp3_ring || MP3_RING - 1 - mp3_count() < (int)sizeof buf) {
+            vTaskDelay(1);
+            continue;
+        }
+        int n = stream_read((char *)buf, (int)sizeof buf);
         if (n < 0)
             break;
         if (n == 0) {
-            vTaskDelay(pdMS_TO_TICKS(2));
+            vTaskDelay(1);
             continue;
         }
-        if (!icy_feed(client, raw, n))
-            break;
+        int off = 0;
+        while (off < n && net_run && radio_run && !station_bump) {
+            if (mp3_push(buf + off, n - off))
+                break;
+            vTaskDelay(1);
+        }
     }
     net_run = false;
     net_task = NULL;
     vTaskDelete(NULL);
-}
-static bool net_start(esp_http_client_handle_t client, uint32_t gen)
-{
-    net_client = client;
-    net_stream_gen = gen;
-    net_run = true;
-    if (net_task)
-        return true;
-    /* mbedtls_ssl_read does not fit in 4 KB. The handshake itself runs on the radio task. */
-    static StackType_t *net_stack;
-    static StaticTask_t net_tcb;
-    static uint32_t net_words;
-    if (!net_stack) {
-        net_stack = heap_caps_malloc(20 * 1024, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-        net_words = (20 * 1024) / sizeof(StackType_t);
-        if (!net_stack) {
-            net_stack = heap_caps_malloc(24 * 1024, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-            net_words = (24 * 1024) / sizeof(StackType_t);
-        }
-    }
-    if (net_stack)
-        net_task = xTaskCreateStaticPinnedToCore(net_task_fn, "radio_net", net_words, NULL, 4,
-                                                 net_stack, &net_tcb, 0);
-    if (!net_task) {
-        net_run = false;
-        return false;
-    }
-    return true;
 }
 
 static int header_find(const char *hdr, int len, const char *key, char *out, int cap)
@@ -771,7 +745,7 @@ static int tcp_open(const char *host, int port)
         return -1;
     int fd = socket(res->ai_family, SOCK_STREAM, 0);
     if (fd >= 0) {
-        int rcv = 8 * 1024, one = 1;
+        int rcv = 24 * 1024, one = 1;
         struct timeval tv = {.tv_sec = 0, .tv_usec = 400000};
         setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcv, sizeof rcv);
         setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
@@ -794,6 +768,7 @@ static int open_plain(const char *url, uint8_t *prefetch, int cap, int *got)
         return -1;
     snprintf(current, sizeof current, "%s", url);
     *got = 0;
+    body_hold_n = 0;
     for (int hop = 0; hop < 3 && radio_run; ++hop) {
         char host[96], path[128], req[384], hdr[1536], value[160];
         int port = 80;
@@ -860,17 +835,27 @@ static int open_plain(const char *url, uint8_t *prefetch, int cap, int *got)
             if (v >= 256 && v <= 65536)
                 icy_metaint = v;
         }
-        icy_reset();
-        if (icy_metaint > 0)
+        if (icy_metaint > 0) {
+            icy_left = icy_metaint;
             ESP_LOGI(TAG, "Removing station labels every %d bytes", icy_metaint);
+        } else
+            icy_left = 0;
         int left = hlen - mark;
+        if (left > (int)sizeof body_hold)
+            left = (int)sizeof body_hold;
+        if (left > 0)
+            memcpy(body_hold, hdr + mark, (size_t)left);
+        body_hold_n = left;
         if (left > cap)
             left = cap;
+        if (left > 0 && prefetch)
+            memcpy(prefetch, body_hold, (size_t)left);
         if (left > 0) {
-            memcpy(prefetch, hdr + mark, (size_t)left);
-            *got = left;
-        } else
-            *got = 0;
+            body_hold_n -= left;
+            if (body_hold_n > 0)
+                memmove(body_hold, body_hold + left, (size_t)body_hold_n);
+        }
+        *got = left > 0 ? left : 0;
         return fd;
     }
     return -1;
@@ -1008,7 +993,10 @@ static bool open_https(const char *url)
             if (v >= 256 && v <= 65536)
                 icy_metaint = v;
         }
-        icy_reset();
+        if (icy_metaint > 0)
+            icy_left = icy_metaint;
+        else
+            icy_left = 0;
         int left = hlen - mark;
         if (left < 0 || left > (int)sizeof stream_push) {
             free(hdr);
@@ -1032,201 +1020,142 @@ static bool open_https(const char *url)
 static bool play_url(const char *url, mp3dec_t *dec)
 {
     icy_metaint = 0;
+    icy_left = 0;
     stream_fd = -1;
-    speaker_stalled = false;
-    esp_http_client_handle_t client = NULL;
-    int prefetch = 0;
+    net_run = false;
+    body_hold_n = 0;
     if (!mp3_ring)
         mp3_ring = heap_caps_malloc(MP3_RING, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     mp3_reset();
     if (!mp3_ring)
         return false;
-    uint8_t *in = heap_caps_malloc(16 * 1024, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    int16_t *pcm = heap_caps_malloc(1152 * 2 * sizeof(int16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    int16_t *pcm_stereo = heap_caps_malloc(1152 * 2 * sizeof(int16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!in || !pcm || !pcm_stereo) {
+    uint8_t *in = heap_caps_malloc(8 * 1024, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!in)
+        in = heap_caps_malloc(8 * 1024, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    int16_t *pcm = heap_caps_malloc(1152 * 2 * sizeof(int16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!pcm)
+        pcm = heap_caps_malloc(1152 * 2 * sizeof(int16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    int filled = 0;
+    if (!in || !pcm) {
         free(in);
         free(pcm);
-        free(pcm_stereo);
         return false;
     }
     bool linked = false;
     if (!strncmp(url, "https://", 8))
         linked = open_https(url);
     else if (!strncmp(url, "http://", 7)) {
-        stream_fd = open_plain(url, in, 16 * 1024, &prefetch);
+        int got = 0;
+        stream_fd = open_plain(url, NULL, 0, &got);
         linked = stream_fd >= 0;
     }
     if (!linked) {
+        ESP_LOGW(TAG, "Stream did not open: %s", url);
         free(in);
         free(pcm);
-        free(pcm_stereo);
         return false;
     }
-    if (icy_metaint > 0)
-        ESP_LOGI(TAG, "Removing station labels every %d bytes", icy_metaint);
-    /* Prefetch runs before the network task exists. Align the generation first,
-     * or a station change rejects those bytes and the next stream never starts. */
-    uint32_t gen = stream_epoch;
-    net_stream_gen = gen;
-    if (prefetch > 0 && !icy_feed(client, in, prefetch)) {
+    net_run = true;
+    if (xTaskCreatePinnedToCore(net_task_fn, "radio_net", 6144, NULL, 4, &net_task, 0) != pdPASS) {
+        net_run = false;
+        net_task = NULL;
         net_stop();
         free(in);
         free(pcm);
-        free(pcm_stereo);
         return false;
     }
-    if (!net_start(client, gen)) {
-        net_stop();
-        free(in);
-        free(pcm);
-        free(pcm_stereo);
-        return false;
-    }
-    int filled = 0, zeros = 0, vol_set = -1;
+    int64_t wait_until = esp_timer_get_time() + INT64_C(4000000);
+    while (radio_run && !station_bump && mp3_count() < MP3_LOW && esp_timer_get_time() < wait_until && net_task)
+        vTaskDelay(pdMS_TO_TICKS(20));
+    int src_rate = 44100;
+    int stream_rate = 0;
     esp_codec_dev_handle_t dev = NULL;
     i2s_chan_handle_t tx = NULL, rx = NULL;
     i2c_master_bus_handle_t bus = NULL;
     bool opened = false, powered = false;
     bool ok = false;
-    int stream_rate = 0;
-    while (stream_alive(gen) && !speaker_stalled) {
-        if (!stream_alive(gen))
-            break;
+    int off = 0;
+    const int in_cap = 8 * 1024;
+    while (radio_run && !station_bump) {
+        int have = mp3_count();
+        int room = in_cap - filled;
+        if (have > 0 && room >= 512) {
+            int take = have < room ? have : room;
+            filled += mp3_pop(in + filled, take);
+        }
+        if (filled - off < 4) {
+            if (!net_task && have == 0 && filled - off < 4) {
+                ESP_LOGW(TAG, "Stream stalled");
+                break;
+            }
+            vTaskDelay(1);
+            continue;
+        }
+        mp3dec_frame_info_t info;
+        int samples = mp3dec_decode_frame(dec, in + off, filled - off, pcm, &info);
+        if (info.frame_bytes <= 0) {
+            off++;
+            if (off > 2048) {
+                memmove(in, in + off, (size_t)(filled - off));
+                filled -= off;
+                off = 0;
+            }
+            continue;
+        }
+        int used = off + info.frame_bytes;
+        memmove(in, in + used, (size_t)(filled - used));
+        filled -= used;
+        off = 0;
+        if (samples <= 0)
+            continue;
         if (!opened) {
-            if (mp3_count() < MP3_LOW) {
-                if (!net_run) {
-                    if (mp3_count() == 0)
-                        break;
-                }
-                if (++zeros > 160)
-                    break;
-                vTaskDelay(pdMS_TO_TICKS(5));
-                continue;
-            }
-            zeros = 0;
-        }
-        while (filled < 12 * 1024 && mp3_count() > 0) {
-            int n = mp3_pop(in + filled, 16 * 1024 - filled);
-            if (n <= 0)
-                break;
-            filled += n;
-        }
-        int off = 0;
-        bool wrote = false;
-        while (stream_alive(gen) && !speaker_stalled && filled - off >= 4) {
-            mp3dec_frame_info_t info;
-            int samples = mp3dec_decode_frame(dec, in + off, filled - off, pcm, &info);
-            if (samples <= 0 || info.frame_bytes <= 0) {
-                if (filled - off > 1024) {
-                    off = filled - 1024;
-                    continue;
-                }
-                break;
-            }
-            off += info.frame_bytes;
-            if (opened && info.hz > 0 && stream_rate > 0 && info.hz != stream_rate) {
-                ESP_LOGW(TAG, "Stream rate changed %d -> %d Hz", stream_rate, info.hz);
-                speaker_stalled = true;
-                break;
-            }
-            if (!opened) {
-                int rate = info.hz ? info.hz : 44100;
-                audio_lock();
-                audio_pins(1);
-                powered = true;
-                vTaskDelay(pdMS_TO_TICKS(80));
-                radio_for_stream(true);
-                pm_for_audio(true);
-                if (!hardware_open(rate, true, &dev, &tx, &rx, &bus)) {
-                    ESP_LOGE(TAG, "Speaker codec did not start");
-                    hardware_close(dev, tx, rx, bus);
-                    dev = NULL;
-                    tx = NULL;
-                    rx = NULL;
-                    bus = NULL;
-                    audio_pins(0);
-                    powered = false;
-                    audio_unlock();
-                    goto done;
-                }
-                opened = true;
-                stream_rate = rate;
-                speaker_open = true;
+            src_rate = info.hz ? info.hz : 44100;
+            int rate = play_rate_for(src_rate);
+            stream_rate = rate;
+            audio_lock();
+            audio_pins(1);
+            powered = true;
+            vTaskDelay(pdMS_TO_TICKS(80));
+            radio_for_stream(true);
+            pm_for_audio(true);
+            if (!hardware_open(rate, true, &dev, &tx, &rx, &bus)) {
+                ESP_LOGE(TAG, "Speaker codec did not start");
+                hardware_close(dev, tx, rx, bus);
+                dev = NULL;
+                audio_pins(0);
+                powered = false;
                 audio_unlock();
-                ESP_LOGI(TAG, "Playing %d Hz, %d ch", rate, info.channels);
+                break;
             }
-            if (dev && vol_set != volume) {
-                esp_codec_dev_set_out_vol(dev, volume);
-                vol_set = volume;
-            }
-            int ch = info.channels == 1 ? 1 : 2;
-            int pcm_bytes;
-            if (ch == 1) {
-                int n = samples > 1152 ? 1152 : samples;
-                for (int i = 0; i < n; ++i)
-                    pcm_stereo[i * 2] = pcm_stereo[i * 2 + 1] = pcm[i];
-                pcm_bytes = n * 4;
-                mix_click(pcm_stereo, n);
-                if (dev && esp_codec_dev_write(dev, pcm_stereo, pcm_bytes) != 0) {
-                    ESP_LOGW(TAG, "Speaker stopped taking audio");
-                    speaker_stalled = true;
-                    break;
-                }
-            } else {
-                pcm_bytes = samples * 4;
-                mix_click(pcm, samples);
-                if (dev && esp_codec_dev_write(dev, pcm, pcm_bytes) != 0) {
-                    ESP_LOGW(TAG, "Speaker stopped taking audio");
-                    speaker_stalled = true;
-                    break;
-                }
-            }
-            wrote = true;
-            ok = true;
+            opened = true;
+            speaker_open = true;
+            audio_unlock();
+            ESP_LOGI(TAG, "Playing %d Hz from a %d byte MP3 cushion", rate, mp3_count());
+        } else if (info.hz >= 8000 && info.hz <= 48000 && info.hz != stream_rate) {
+            ESP_LOGW(TAG, "Stream %d Hz, reopening (I2S at %d Hz)", info.hz, stream_rate);
+            break;
         }
-        if (off > 0) {
-            memmove(in, in + off, (size_t)(filled - off));
-            filled -= off;
-        } else if (!wrote && filled >= 16 * 1024)
-            filled = 0;
-        if (!stream_alive(gen) || speaker_stalled)
-            break;
-        if (!wrote && mp3_count() == 0 && !net_run)
-            break;
-        if (wrote)
-            zeros = 0;
-        else if (opened && mp3_count() < MP3_LOW / 2)
-            zeros++;
-        if (zeros > 40 && opened)
-            break;
-        if (!wrote)
-            vTaskDelay(pdMS_TO_TICKS(3));
+        int ch = info.channels == 1 ? 1 : 2;
+        int16_t play[1152 * 2];
+        int frames = pack_play(pcm, samples, ch, play, 1152);
+        if (frames > 0 && dev)
+            write_pcm(dev, play, frames, 2);
+        ok = true;
     }
-done:
-    if (speaker_stalled)
-        ESP_LOGW(TAG, "Speaker stopped taking audio; closing the stream");
-    if (stream_epoch != gen)
-        ESP_LOGI(TAG, "Stream ended for station change");
+    net_run = false;
+    for (int i = 0; i < 50 && net_task; i++)
+        vTaskDelay(pdMS_TO_TICKS(20));
     net_stop();
     speaker_open = false;
     audio_lock();
     hardware_close(dev, tx, rx, bus);
     if (powered)
         audio_pins(0);
-    audio_unlock();
+    if (opened)
+        audio_unlock();
     free(in);
     free(pcm);
-    free(pcm_stereo);
-    if (stream_fd >= 0) {
-        close(stream_fd);
-        stream_fd = -1;
-    }
-    if (client) {
-        esp_http_client_close(client);
-        esp_http_client_cleanup(client);
-    }
-    return ok && stream_epoch == gen;
+    return ok;
 }
 
 static bool station_online(void)
@@ -1244,6 +1173,10 @@ static void radio_task_fn(void *unused)
     mp3dec_init(&dec);
     pm_for_audio(true);
     radio_for_stream(true);
+    for (int wait = 0; radio_run && wait < 120 && !station_online(); wait++)
+        vTaskDelay(pdMS_TO_TICKS(500));
+    if (radio_run && !station_online())
+        ESP_LOGW(TAG, "Wi-Fi still down; the stream will keep trying");
     while (radio_run) {
         bool played = false;
         if (!station_online()) {
