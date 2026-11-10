@@ -2929,14 +2929,15 @@ static void fmt_prayer_time(char *out, size_t len, int minute, bool clock24)
 }
 
 static void salah_tile(canvas_t *c, int x, int y, int w, int h, const char *name, const char *when,
-                       bool current, bool done, bool boxed, int alert, int body, int frame)
+                       int fill, bool current, bool boxed, int alert, int body, int frame)
 {
     int name_ink = body;
     int time_ink = body;
-    /* No fill until an NFC tap. The current prayer is only a red border until then. */
-    if (done) {
-        rect(c, x, y, w, h, alert);
-        name_ink = time_ink = ink_on_fill(alert);
+    /* Yellow is a tap. Red is a prayer that already passed without one. The current prayer
+     * and the ones still ahead stay on the paper until a tap. */
+    if (fill == YELLOW || fill == RED) {
+        rect(c, x, y, w, h, fill);
+        name_ink = time_ink = ink_on_fill(fill);
     } else if (current)
         frame_rect(c, x, y, w, h, 4, alert);
     else if (boxed)
@@ -2997,9 +2998,12 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
             fmt_prayer_time(when, sizeof when, salah.valid ? salah.minute[i] : -1, cfg->clock24);
             snprintf(name, sizeof name, "%s", home_salah_name(i));
             qurantrix_upper_box_title(name, js.upper_titles);
-            salah_tile(&c, x, 32, tile, 56, name, when, salah.valid && salah.current == i,
-                       (mask & (1 << i)) != 0, (js.borders & QURAN_FRAME_TILES) != 0, ink.alert,
-                       ink.body, ink.frame);
+            bool tapped = (mask & (1 << i)) != 0;
+            bool current = salah.valid && salah.current == i;
+            bool past = salah.valid && salah.current > i;
+            int fill = tapped ? YELLOW : past ? RED : -1;
+            salah_tile(&c, x, 32, tile, 56, name, when, fill, current,
+                       (js.borders & QURAN_FRAME_TILES) != 0, ink.alert, ink.body, ink.frame);
             x += tile + gap;
         }
     }
