@@ -211,7 +211,9 @@
   #customColors.off { display: none; }
   .pig-row { margin-top: .55rem; }
   .pig-row span { display: block; font-size: .78rem; font-weight: 700; margin-bottom: .25rem; }
-  select.places { width: 100%; margin-top: .5rem; border-radius: 12px; border: 1px solid var(--line); background: #fff; min-height: 6.5rem; font: inherit; padding: .3rem; }
+  .places { width: 100%; margin-top: .5rem; border-radius: 12px; border: 1px solid var(--line); background: #fff; min-height: 6.5rem; max-height: 16rem; overflow: auto; padding: .25rem; }
+  .places button.place { display: block; width: 100%; text-align: left; border: 0; border-radius: 10px; background: transparent; color: var(--ink); padding: .55rem .7rem; font: inherit; font-weight: 650; cursor: pointer; }
+  .places button.place[aria-selected="true"] { background: var(--ink); color: var(--paper); }
   .savebar {
     position: fixed; left: 0; right: 0; bottom: 0;
     padding: .8rem 1.35rem calc(.85rem + env(safe-area-inset-bottom));
@@ -271,7 +273,7 @@
     <button type="button" class="ghost" id="searchBtn" data-i18n="searchPlaces">Search places</button>
     <button type="button" class="ghost" id="offlinePlacesBtn" data-i18n="offlinePlacesBtn" hidden>Show offline cities</button>
     <p class="hint" data-i18n="offlinePlacesHint">No internet? Pick a city below, then tap Use this place. Time zone and coordinates are filled in.</p>
-    <select id="places" class="places" size="6"></select>
+    <div id="places" class="places" role="listbox" aria-label="Places"></div>
     <button type="button" class="action" id="locBtn" data-i18n="usePlace">Use this place</button>
     <p class="hint" data-i18n="manualPlaceHint">Or enter latitude and longitude manually (time zone under Top bar).</p>
     <div class="manual-place">
@@ -574,25 +576,56 @@ function placeOptionLabel(p) {
   return p.name + (p.admin1 ? ', ' + p.admin1 : '');
 }
 
-function makePlaceOption(p) {
-  const label = placeOptionLabel(p);
-  const o = document.createElement('option');
-  o.value = JSON.stringify({
-    name: label,
-    latitude: p.latitude,
-    longitude: p.longitude,
-    timezone: p.timezone
-  });
-  o.textContent = label;
-  return o;
+function foldPlace(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-function fillOfflinePlaces() {
+function placeMatches(p, q) {
+  const words = foldPlace(q).split(/[^a-z0-9]+/).filter(Boolean);
+  if (!words.length) return true;
+  const hay = foldPlace([p.name, p.admin1, p.country].filter(Boolean).join(' '));
+  return words.every(w => hay.includes(w));
+}
+
+function makePlaceRow(p) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'place';
+  b.setAttribute('role', 'option');
+  /* City name only: the desk stores 64 bytes. The row text keeps the region. */
+  b.dataset.place = JSON.stringify({
+    name: p.name,
+    latitude: p.latitude,
+    longitude: p.longitude,
+    timezone: p.timezone || ''
+  });
+  b.textContent = placeOptionLabel(p);
+  return b;
+}
+
+function selectedPlace() {
   const sel = document.getElementById('places');
-  sel.innerHTML = '';
-  OFFLINE_PLACES.forEach(p => sel.appendChild(makePlaceOption(p)));
+  const b = sel && sel.querySelector('button.place[aria-selected="true"]');
+  if (!b) return null;
+  try { return JSON.parse(b.dataset.place); }
+  catch (e) { return null; }
+}
+
+function setPlaceList(rows, selectFirst) {
+  const sel = document.getElementById('places');
+  const nodes = rows.map(makePlaceRow);
+  if (selectFirst && nodes.length) nodes[0].setAttribute('aria-selected', 'true');
+  sel.replaceChildren.apply(sel, nodes);
+  return nodes.length;
+}
+
+function fillOfflinePlaces(query) {
+  const q = String(query || '').trim();
+  const rows = q ? OFFLINE_PLACES.filter(p => placeMatches(p, q)) : OFFLINE_PLACES;
+  const n = setPlaceList(rows, !!q && rows.length === 1);
   const btn = document.getElementById('offlinePlacesBtn');
-  if (btn) btn.hidden = true;
+  if (btn) btn.hidden = !q;
+  return n;
 }
 
 const HIJRI_MONTHS = ['Muharram', 'Safar', 'Rabi I', 'Rabi II', 'Jumada I', 'Jumada II', 'Rajab', 'Shaban', 'Ramadan', 'Shawwal', 'Dhul Qidah', 'Dhul Hijjah'];
@@ -1349,7 +1382,38 @@ document.querySelectorAll('button.help').forEach(btn => {
 });
 document.querySelector('.blocks').addEventListener('change', paint);
 document.getElementById('timezone').addEventListener('change', paint);
-document.getElementById('place').addEventListener('input', paint);
+document.getElementById('place').addEventListener('input', () => {
+  paint();
+  const q = document.getElementById('place').value.trim();
+  if (!q) {
+    clearTimeout(placeSearchTimer);
+    placeSearchGen++;
+    fillOfflinePlaces('');
+    return;
+  }
+  const local = OFFLINE_PLACES.filter(p => placeMatches(p, q));
+  const n = setPlaceList(local, q.length >= 2 && local.length === 1);
+  const btn = document.getElementById('offlinePlacesBtn');
+  if (btn) btn.hidden = false;
+  if (n) showPlaceCount(n);
+  schedulePlaceSearch();
+});
+document.getElementById('place').addEventListener('keydown', (ev) => {
+  if (ev.key !== 'Enter') return;
+  ev.preventDefault();
+  clearTimeout(placeSearchTimer);
+  runPlaceSearch();
+});
+document.getElementById('places').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button.place');
+  if (!b || !b.parentElement) return;
+  b.parentElement.querySelectorAll('button.place').forEach(el => {
+    const on = el === b;
+    el.setAttribute('aria-selected', on ? 'true' : 'false');
+    if (on) el.dataset.user = '1';
+    else delete el.dataset.user;
+  });
+});
 document.getElementById('stations').addEventListener('click', ev => {
   const list = document.getElementById('stations');
   const row = ev.target.closest('.station');
@@ -1503,27 +1567,52 @@ document.getElementById('wifiBtn').onclick = async () => {
     status(t('wifiSaved'), true);
   } catch (e) { status(e.message, false); }
 };
-function fillPlaceResults(j) {
-  const sel = document.getElementById('places');
-  sel.innerHTML = '';
-    (j.results || []).forEach(p => {
-    const admin = [p.admin1, p.country].filter(Boolean).join(', ');
-    sel.appendChild(makePlaceOption({
-      name: p.name,
-      admin1: admin,
-      latitude: p.latitude,
-      longitude: p.longitude,
-      timezone: p.timezone
-    }));
-  });
-  const btn = document.getElementById('offlinePlacesBtn');
-  if (btn) btn.hidden = !sel.options.length;
-    if (!sel.options.length) status(t('noPlaces'), false);
-  else {
-    if (btn) btn.hidden = false;
-    sel.selectedIndex = 0;
-    status(t('placesCount').replace('%n', sel.options.length), true);
+let placeSearchGen = 0;
+let placeSearchTimer = 0;
+function deviceZone(tz) {
+  if (!tz) return false;
+  const sel = document.getElementById('timezone');
+  return [...sel.options].some(o => o.value === tz && !o.dataset.extra);
+}
+function fitPlaceName(name) {
+  let s = String(name || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
+  const enc = new TextEncoder();
+  while (s && enc.encode(s).length > 64) s = Array.from(s).slice(0, -1).join('').trimEnd();
+  return s;
+}
+function stampPlace(cfg, p) {
+  const name = fitPlaceName(p.name);
+  const lat = Number(p.latitude);
+  const lon = Number(p.longitude);
+  if (!name) throw new Error(t('pickPlace'));
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error(t('badLatitude'));
+  if (!Number.isFinite(lon) || lon < -180 || lon > 180) throw new Error(t('badLongitude'));
+  cfg.location = name;
+  cfg.latitude = lat;
+  cfg.longitude = lon;
+  cfg.location_ready = true;
+  const wanted = p.timezone || '';
+  const zone = deviceZone(wanted) ? wanted
+    : (deviceZone(document.getElementById('timezone').value) ? document.getElementById('timezone').value : '');
+  if (zone) {
+    cfg.timezone = zone;
+    document.getElementById('timezone').value = zone;
   }
+  previewPlace = { lat, lon, ready: true, name };
+  document.getElementById('place').value = name;
+  document.getElementById('manualLat').value = String(lat);
+  document.getElementById('manualLon').value = String(lon);
+  return { name, zoneKept: !!(wanted && zone !== wanted) };
+}
+function placeToSave() {
+  const picked = selectedPlace();
+  if (!picked) return null;
+  const row = document.getElementById('places').querySelector('button.place[aria-selected="true"]');
+  if (row && row.dataset.user === '1') return picked;
+  const q = foldPlace(document.getElementById('place').value.trim());
+  const name = foldPlace(picked.name);
+  if (q.length >= 2 && (name === q || name.startsWith(q))) return picked;
+  return null;
 }
 async function geocodeQuery(q) {
   try {
@@ -1541,50 +1630,76 @@ async function geocodeQuery(q) {
     throw e;
   }
 }
-async function applyPlace(p) {
-    const cfg = await api('/api/config', { headers: hdr() });
-  cfg.location = p.name;
-  cfg.latitude = p.latitude;
-  cfg.longitude = p.longitude;
-  cfg.location_ready = true;
-  const tz = p.timezone || document.getElementById('timezone').value;
-  if (tz) {
-    cfg.timezone = tz;
-      const sel = document.getElementById('timezone');
-    if (![...sel.options].some(o => o.value === tz)) {
-        const o = document.createElement('option');
-      o.value = tz;
-      o.textContent = tz;
-        sel.appendChild(o);
-      }
-    sel.value = tz;
-    }
-    cfg.clock24 = document.getElementById('clock24').value === '1';
-  previewPlace = { lat: p.latitude, lon: p.longitude, ready: true, name: p.name || '' };
-  document.getElementById('place').value = p.name || '';
-  document.getElementById('manualLat').value = String(p.latitude);
-  document.getElementById('manualLon').value = String(p.longitude);
-    await api('/api/config', { method: 'PUT', headers: hdr(), body: JSON.stringify(cfg) });
-    paint();
-    status(t('placeSaved').replace('%s', p.name), true);
+function showPlaceCount(n) {
+  status(n ? t('placesCount').replace('%n', n) : t('noPlaces'), !!n);
 }
-document.getElementById('searchBtn').onclick = async () => {
+async function runPlaceSearch() {
+  const q = document.getElementById('place').value.trim();
+  const gen = ++placeSearchGen;
+  if (!q) {
+    fillOfflinePlaces('');
+    return status(t('typePlace'), false);
+  }
+  const local = OFFLINE_PLACES.filter(p => placeMatches(p, q));
+  const shown = setPlaceList(local, q.length >= 2 && local.length === 1);
+  const btn = document.getElementById('offlinePlacesBtn');
+  if (btn) btn.hidden = false;
+  if (shown) showPlaceCount(shown);
+  if (q.length < 2) {
+    if (!shown) showPlaceCount(0);
+    return;
+  }
   try {
-    const q = document.getElementById('place').value.trim();
-    if (!q) return status(t('typePlace'), false);
     const j = await geocodeQuery(q);
-    fillPlaceResults(j);
-  } catch (e) { status(e.message || t('searchNeeds'), false); }
+    if (gen !== placeSearchGen) return;
+    const remote = (j && j.results || []).filter(p => p && p.name && Number.isFinite(+p.latitude) && Number.isFinite(+p.longitude))
+      .map(p => ({
+        name: p.name,
+        admin1: [p.admin1, p.country].filter(v => v && foldPlace(v) !== foldPlace(p.name)).join(', '),
+        latitude: +p.latitude,
+        longitude: +p.longitude,
+        timezone: p.timezone || ''
+      }));
+    if (!remote.length) return showPlaceCount(shown);
+    setPlaceList(remote, true);
+    if (btn) btn.hidden = false;
+    showPlaceCount(remote.length);
+  } catch (e) {
+    if (gen !== placeSearchGen) return;
+    if (shown) showPlaceCount(shown);
+    else status(e.message || t('searchNeeds'), false);
+  }
+}
+function schedulePlaceSearch() {
+  clearTimeout(placeSearchTimer);
+  placeSearchTimer = setTimeout(runPlaceSearch, 280);
+}
+async function applyPlace(p) {
+  clearTimeout(placeSearchTimer);
+  placeSearchGen++;
+  const cfg = await api('/api/config', { headers: hdr() });
+  const saved = stampPlace(cfg, p);
+  cfg.clock24 = document.getElementById('clock24').value === '1';
+  await api('/api/config', { method: 'PUT', headers: hdr(), body: JSON.stringify(cfg) });
+  paint();
+  status(saved.zoneKept ? t('zoneKept') : t('placeSaved').replace('%s', saved.name), true);
+}
+document.getElementById('searchBtn').onclick = () => {
+  clearTimeout(placeSearchTimer);
+  runPlaceSearch();
 };
 document.getElementById('offlinePlacesBtn').onclick = () => {
-  fillOfflinePlaces();
+  clearTimeout(placeSearchTimer);
+  placeSearchGen++;
+  document.getElementById('place').value = '';
+  fillOfflinePlaces('');
   status(t('offlinePlacesShown'), true);
 };
 document.getElementById('locBtn').onclick = async () => {
   try {
-    const sel = document.getElementById('places');
-    if (!sel.value) return status(t('pickPlace'), false);
-    await applyPlace(JSON.parse(sel.value));
+    const p = selectedPlace();
+    if (!p) return status(t('pickPlace'), false);
+    await applyPlace(p);
   } catch (e) { status(e.message, false); }
 };
 document.getElementById('manualPlaceBtn').onclick = async () => {
@@ -1607,15 +1722,19 @@ document.getElementById('deskBtn').onclick = async () => {
     const cfg = await api('/api/config', { headers: hdr() });
     cfg.clock24 = document.getElementById('clock24').value === '1';
     const zone = document.getElementById('timezone').value;
-    if (zone) cfg.timezone = zone;
-    const lat = parseFloat(document.getElementById('manualLat').value);
-    const lon = parseFloat(document.getElementById('manualLon').value);
-    const placeLabel = document.getElementById('place').value.trim();
-    if (zone && Number.isFinite(lat) && Number.isFinite(lon)) {
-      cfg.latitude = lat;
-      cfg.longitude = lon;
-      cfg.location_ready = true;
-      if (placeLabel) cfg.location = placeLabel;
+    if (zone && deviceZone(zone)) cfg.timezone = zone;
+    const picked = placeToSave();
+    if (picked) stampPlace(cfg, picked);
+    else {
+      const lat = parseFloat(document.getElementById('manualLat').value);
+      const lon = parseFloat(document.getElementById('manualLon').value);
+      const placeLabel = fitPlaceName(document.getElementById('place').value.trim());
+      if (zone && deviceZone(zone) && Number.isFinite(lat) && Number.isFinite(lon)) {
+        cfg.latitude = lat;
+        cfg.longitude = lon;
+        cfg.location_ready = true;
+        if (placeLabel) cfg.location = placeLabel;
+      }
     }
     cfg.locale = 'en';
     cfg.calendar_url = document.getElementById('calendarUrl').value.trim();
@@ -1714,7 +1833,9 @@ const I18N = {
     typePlace: 'Type a place first.', noPlaces: 'No places found.', placesCount: '%n places.',
     searchNeeds: 'Search needs internet on the desk or on your phone.',
     pickPlace: 'Pick a place.', pickTimezone: 'Choose a time zone first.', badLatitude: 'Latitude must be between −90 and 90.',
-    badLongitude: 'Longitude must be between −180 and 180.', placeSaved: '%s saved.', savedPaper: 'Saved. The paper will refresh.', saving: 'Saving…'
+    badLongitude: 'Longitude must be between −180 and 180.', placeSaved: '%s saved.',
+    zoneKept: 'Saved. Choose the time zone under Top bar.',
+    savedPaper: 'Saved. The paper will refresh.', saving: 'Saving…'
   },
 
 };
