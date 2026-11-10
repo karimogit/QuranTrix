@@ -467,12 +467,18 @@ static void line(canvas_t *c, int x0, int y0, int x1, int y1, int p)
         }
     }
 }
-static void strike_h(canvas_t *c, int x0, int x1, int y, int p)
+static void tile_x(canvas_t *c, int x, int y, int w, int h, int p)
 {
-    /* Three pixels. A one-pixel line is lost in the red of the current tile. */
-    line(c, x0, y, x1, y, p);
-    line(c, x0, y + 1, x1, y + 1, p);
-    line(c, x0, y + 2, x1, y + 2, p);
+    const int pad = 3;
+    int x0 = x + pad, y0 = y + pad;
+    int x1 = x + w - pad - 1, y1 = y + h - pad - 1;
+    /* A bold X reads on e-ink; thin strike-through lines vanish on red and yellow. */
+    for (int t = -2; t <= 2; t++) {
+        line(c, x0 + t, y0, x1 + t, y1, p);
+        line(c, x0, y0 + t, x1, y1 + t, p);
+        line(c, x1 + t, y0, x0 + t, y1, p);
+        line(c, x1, y0 + t, x0, y1 + t, p);
+    }
 }
 static size_t bounded(const char *s, size_t cap)
 {
@@ -2952,12 +2958,9 @@ static void salah_tile(canvas_t *c, int x, int y, int w, int h, const char *name
     clip_aligned(c, x + 4, y + 8, w - 8, 16, 0, name_ink, name, 1);
     clip_aligned(c, x + 4, y + 28, w - 8, 22, 1, time_ink, when, 1);
     if (done) {
-        /* The current tile is filled, and its type is paper. A paper line
-         * sits in the same pigment as the letters, so the word is not crossed
-         * out. Black cuts the glyphs on that fill and still reads on the others. */
-        int cut = (name_ink == PAPER) ? BLACK : name_ink;
-        strike_h(c, x + 6, x + w - 6, y + 14, cut);
-        strike_h(c, x + 6, x + w - 6, y + 36, (time_ink == PAPER) ? BLACK : time_ink);
+        int fill = current ? alert : accent;
+        int cut = (fill == YELLOW || fill == PAPER) ? BLACK : PAPER;
+        tile_x(c, x, y, w, h, cut);
     }
 }
 
