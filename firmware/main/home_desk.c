@@ -143,28 +143,40 @@ static void nfc_prepare_tag(void)
 static int current_prayer(int *today)
 {
     time_t now = time(NULL);
-    home_config_t cfg;
+    /* These two structs are about 3 KB. They stay off the NFC task stack. */
+    static home_config_t cfg;
+    static qurantrix_settings_t js;
     bool clock_ok;
     struct tm local;
     int32_t off = 0;
-    qurantrix_settings_t js;
     home_salah_day_t day;
     home_lock();
     cfg = home_runtime.config;
     /* Same gate as the dashboard: a 2024+ clock and a saved place. */
     clock_ok = now >= 1704067200 && cfg.location_ready;
     home_unlock();
-    if (!clock_ok || !home_tz_localtime(cfg.timezone, (int64_t)now, &local))
+    if (!clock_ok) {
+        ESP_LOGW(TAG, "NFC prayer skipped, clock %lld place %s", (long long)now,
+                 cfg.location_ready ? "saved" : "missing");
         return -1;
-    if (!home_tz_offset_at(cfg.timezone, (int64_t)now, &off, NULL))
+    }
+    if (!home_tz_localtime(cfg.timezone, (int64_t)now, &local)) {
+        ESP_LOGW(TAG, "NFC prayer skipped, time zone %s", cfg.timezone);
         return -1;
+    }
+    if (!home_tz_offset_at(cfg.timezone, (int64_t)now, &off, NULL)) {
+        ESP_LOGW(TAG, "NFC prayer skipped, no offset for %s", cfg.timezone);
+        return -1;
+    }
     qurantrix_settings_get(&js);
     if (!home_salah_compute(cfg.latitude, cfg.longitude, off, &local,
                             js.wind_unit > 4 ? 0 : js.wind_unit,
                             js.forecast_style > 1 ? 0 : js.forecast_style, cfg.location_ready,
                             &day) ||
-        !day.valid || day.current < 0 || day.current >= SALAH_COUNT)
+        !day.valid || day.current < 0 || day.current >= SALAH_COUNT) {
+        ESP_LOGW(TAG, "NFC prayer skipped, times not valid");
         return -1;
+    }
     if (today)
         *today = (local.tm_year + 1900) * 1000 + local.tm_yday;
     return day.current;
@@ -177,11 +189,11 @@ static void nfc_count(void)
     if (mono < arm_at || mono - last_count_us < INT64_C(1500000))
         return;
     last_count_us = mono;
+    ESP_LOGI(TAG, "NFC field");
+    home_radio_click();
     which = current_prayer(&today);
-    if (which < 0) {
-        ESP_LOGW(TAG, "NFC seen, prayer not marked");
+    if (which < 0)
         return;
-    }
     /* Stamp the day with the mark. Save before unlock so a midnight clear cannot
      * be overwritten by a snapshot taken earlier. */
     home_lock();
@@ -198,7 +210,6 @@ static void nfc_count(void)
     }
     home_unlock();
     ESP_LOGI(TAG, "Prayer %s marked", home_salah_name(which));
-    home_radio_click();
     home_loop_poke();
 }
 static void nfc_task_fn(void *unused)
@@ -216,10 +227,8 @@ static void nfc_task_fn(void *unused)
             while (gpio_get_level(NFC_FD) == 0 && guard++ < 40)
                 vTaskDelay(pdMS_TO_TICKS(25));
         }
-        if (gpio_get_level(NFC_FD) != 0) {
-            gpio_set_intr_type(NFC_FD, GPIO_INTR_NEGEDGE);
+        if (gpio_get_level(NFC_FD) != 0)
             gpio_intr_enable(NFC_FD);
-        }
     }
 }
 void home_desk_init(void)
@@ -250,7 +259,7 @@ void home_desk_init(void)
     gpio_sleep_sel_dis(NFC_FD);
     arm_at = esp_timer_get_time() + INT64_C(2000000);
     nfc_prepare_tag();
-    if (xTaskCreate(nfc_task_fn, "nfc", 4096, NULL, 10, &nfc_task) != pdPASS)
+    if (xTaskCreate(nfc_task_fn, "nfc", 8192, NULL, 10, &nfc_task) != pdPASS)
         ESP_LOGW(TAG, "NFC watcher was not created");
     esp_err_t isr = gpio_install_isr_service(0);
     if (isr != ESP_OK && isr != ESP_ERR_INVALID_STATE)
@@ -261,10 +270,8 @@ void home_desk_init(void)
     if (gpio_wakeup_enable(NFC_FD, GPIO_INTR_LOW_LEVEL) != ESP_OK)
         ESP_LOGW(TAG, "NFC field will not wake the chip");
     esp_sleep_enable_gpio_wakeup();
-    if (gpio_get_level(NFC_FD) != 0) {
-        gpio_set_intr_type(NFC_FD, GPIO_INTR_NEGEDGE);
+    if (gpio_get_level(NFC_FD) != 0)
         gpio_intr_enable(NFC_FD);
-    }
     ESP_LOGI(TAG, "Prayers %d, NFC field pin %s", prayers,
              gpio_get_level(NFC_FD) == 0 ? "low" : "resting");
 }
@@ -273,10 +280,8 @@ void home_desk_listen(void)
 {
     gpio_wakeup_enable(NFC_FD, GPIO_INTR_LOW_LEVEL);
     esp_sleep_enable_gpio_wakeup();
-    if (gpio_get_level(NFC_FD) != 0) {
-        gpio_set_intr_type(NFC_FD, GPIO_INTR_NEGEDGE);
+    if (gpio_get_level(NFC_FD) != 0)
         gpio_intr_enable(NFC_FD);
-    }
 }
 int home_desk_prayers(void) { return prayers; }
 bool home_desk_button_blocked(void)

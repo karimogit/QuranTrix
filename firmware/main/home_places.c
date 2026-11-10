@@ -64,7 +64,7 @@ cJSON *home_timezones_json(void)
 bool home_tz_offset_at(const char *name, int64_t utc, int32_t *offset_seconds, bool *is_dst)
 {
     const home_zone_row_t *zone = find_zone(name);
-    if (!zone || !offset_seconds || !is_dst || utc < HOME_ZONE_START || utc >= HOME_ZONE_STOP)
+    if (!zone || !offset_seconds || utc < HOME_ZONE_START || utc >= HOME_ZONE_STOP)
         return false;
     home_zone_span_t span = home_zone_spans[zone->span];
     size_t lo = 0, hi = span.count;
@@ -79,7 +79,8 @@ bool home_tz_offset_at(const char *name, int64_t utc, int32_t *offset_seconds, b
         return false;
     const home_zone_state_t state = home_zone_states[home_zone_state_indices[span.start + lo - 1]];
     *offset_seconds = state.offset;
-    *is_dst = state.dst != 0;
+    if (is_dst)
+        *is_dst = state.dst != 0;
     return true;
 }
 bool home_tz_localtime(const char *name, int64_t utc, struct tm *out)

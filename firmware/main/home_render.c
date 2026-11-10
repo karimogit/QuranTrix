@@ -467,19 +467,6 @@ static void line(canvas_t *c, int x0, int y0, int x1, int y1, int p)
         }
     }
 }
-static void tile_check(canvas_t *c, int x, int y, int w, int h, int p)
-{
-    /* Lower-right corner, clear of the centered name and time. */
-    int s0x = x + w - 16, s0y = y + h - 14;
-    int s1x = x + w - 10, s1y = y + h - 7;
-    int s2x = x + w - 4, s2y = y + h - 18;
-    for (int t = -2; t <= 2; t++) {
-        line(c, s0x + t, s0y, s1x + t, s1y, p);
-        line(c, s0x, s0y + t, s1x, s1y + t, p);
-        line(c, s1x + t, s1y, s2x + t, s2y, p);
-        line(c, s1x, s1y + t, s2x, s2y + t, p);
-    }
-}
 static size_t bounded(const char *s, size_t cap)
 {
     size_t n = 0;
@@ -2945,23 +2932,16 @@ static void salah_tile(canvas_t *c, int x, int y, int w, int h, const char *name
                        bool current, bool done, bool boxed, int alert, int accent, int frame)
 {
     int name_ink, time_ink;
-    if (current) {
-        rect(c, x, y, w, h, alert);
-        name_ink = time_ink = ink_on_fill(alert);
-    } else {
-        rect(c, x, y, w, h, accent);
-        name_ink = time_ink = ink_on_fill(accent);
-        if (boxed)
-            frame_rect(c, x, y, w, h, 2, frame);
-    }
-    /* Name and time share the tile. Both are centered, so the lower half is not blank. */
+    int fill = done ? alert : accent;
+    rect(c, x, y, w, h, fill);
+    name_ink = time_ink = ink_on_fill(fill);
+    /* A prayed tile is a solid red field. The current one, still open, is only a red border. */
+    if (!done && current)
+        frame_rect(c, x, y, w, h, 4, alert);
+    else if (!done && boxed)
+        frame_rect(c, x, y, w, h, 2, frame);
     clip_aligned(c, x + 4, y + 8, w - 8, 16, 0, name_ink, name, 1);
     clip_aligned(c, x + 4, y + 28, w - 8, 22, 1, time_ink, when, 1);
-    if (done) {
-        int fill = current ? alert : accent;
-        int cut = (fill == YELLOW || fill == PAPER) ? BLACK : PAPER;
-        tile_check(c, x, y, w, h, cut);
-    }
 }
 
 void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, int64_t now,
