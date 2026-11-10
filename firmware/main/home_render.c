@@ -2928,20 +2928,19 @@ static void fmt_prayer_time(char *out, size_t len, int minute, bool clock24)
     snprintf(out, len, "%d:%02d%s", h12, m, h >= 12 ? "p" : "a");
 }
 
+/* fill is YELLOW (tapped), RED (missed), or anything else for the bare paper. */
 static void salah_tile(canvas_t *c, int x, int y, int w, int h, const char *name, const char *when,
-                       bool current, bool done, bool boxed, int alert, int accent, int frame)
+                       int fill, int text, bool boxed, int frame)
 {
-    int name_ink, time_ink;
-    int fill = done ? alert : accent;
-    rect(c, x, y, w, h, fill);
-    name_ink = time_ink = ink_on_fill(fill);
-    /* A prayed tile is a solid red field. The current one, still open, is only a red border. */
-    if (!done && current)
-        frame_rect(c, x, y, w, h, 4, alert);
-    else if (!done && boxed)
+    int ink = text;
+    if (fill == YELLOW || fill == RED) {
+        rect(c, x, y, w, h, fill);
+        ink = ink_on_fill(fill);
+    } else if (boxed)
         frame_rect(c, x, y, w, h, 2, frame);
-    clip_aligned(c, x + 4, y + 8, w - 8, 16, 0, name_ink, name, 1);
-    clip_aligned(c, x + 4, y + 28, w - 8, 22, 1, time_ink, when, 1);
+    /* Name and time share the tile. Both are centered, so the lower half is not blank. */
+    clip_aligned(c, x + 4, y + 8, w - 8, 16, 0, ink, name, 1);
+    clip_aligned(c, x + 4, y + 28, w - 8, 22, 1, ink, when, 1);
 }
 
 void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, int64_t now,
@@ -2996,9 +2995,13 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
             fmt_prayer_time(when, sizeof when, salah.valid ? salah.minute[i] : -1, cfg->clock24);
             snprintf(name, sizeof name, "%s", home_salah_name(i));
             qurantrix_upper_box_title(name, js.upper_titles);
-            salah_tile(&c, x, 32, tile, 56, name, when, salah.valid && salah.current == i,
-                       (mask & (1 << i)) != 0, (js.borders & QURAN_FRAME_TILES) != 0, ink.alert,
-                       ink.accent, ink.frame);
+            bool tapped = (mask & (1 << i)) != 0;
+            int now_m = have_clock ? local.tm_hour * 60 + local.tm_min : -1;
+            bool due = salah.valid && salah.minute[i] >= 0 && now_m >= salah.minute[i];
+            bool open = due && salah.current == i;
+            int fill = tapped ? YELLOW : (due && !open) ? RED : -1;
+            salah_tile(&c, x, 32, tile, 56, name, when, fill, ink.body,
+                       (js.borders & QURAN_FRAME_TILES) != 0, ink.frame);
             x += tile + gap;
         }
     }

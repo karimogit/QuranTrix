@@ -294,6 +294,8 @@
       <select id="asrMadhab" hidden><option value="0">Shafi</option><option value="1">Hanafi</option></select>
       <div class="seg" data-for="asrMadhab"><button type="button" data-v="0">Shafi</button><button type="button" data-v="1">Hanafi</button></div>
     </label>
+    <label class="block"><span data-i18n="adhan">Adhan at prayer time</span><span class="switch"><input type="checkbox" id="adhan"><i></i></span></label>
+    <p class="hint" data-i18n="adhanHint">Off until you turn it on. The speaker then plays the call at each prayer, and the paper refreshes at that minute. It stays quiet while the radio is already on.</p>
     <label class="field"><span data-i18n="holidayCal">Holiday calendar</span>
       <textarea id="calendarUrl" rows="3" maxlength="512" spellcheck="false"></textarea>
     </label>
@@ -302,7 +304,7 @@
 
   <section>
     <div class="head"><h2 data-i18n="paperTitle">On the paper</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-paper" aria-label="Help">?</button></div>
-    <p class="helptext" id="help-paper" hidden data-i18n="helpPaper">The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and marks the highlighted prayer by filling its tile red.</p>
+    <p class="helptext" id="help-paper" hidden data-i18n="helpPaper">The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and fills that prayer yellow. A prayer that passed without a tap is red. The others have no fill.</p>
     <p class="hint" data-i18n="paperHint">Turn a block off. The top bar stays.</p>
     <div class="blocks">
       <label class="block"><span data-i18n="blockPrayers">Prayers</span><span class="switch"><input type="checkbox" id="bPrayers" checked><i></i></span></label>
@@ -767,16 +769,18 @@ function tzOffsetHours(tz) {
   } catch (e) {}
   return 0;
 }
-function previewSalahFallback() {
-  return {
-    minute: [353, 744, 874, 1017, 1128], sunrise: 462, sunset: 1017, valid: true, current: 1
-  };
+function previewSalahFallback(hr, mi) {
+  const minute = [353, 744, 874, 1017, 1128];
+  const now_m = (hr || 0) * 60 + (mi || 0);
+  let current = 0;
+  for (let i = 0; i < 5; i++) if (now_m >= minute[i]) current = i;
+  return { minute, sunrise: 462, sunset: 1017, valid: true, current };
 }
 function previewSalahCompute(lat, lon, y, m, d, hr, mi, method, madhab, located, tzName) {
   const out = { minute: [-1, -1, -1, -1, -1], sunrise: -1, sunset: -1, valid: false, current: 0 };
   const methods = [{ fajr: 18, isha: 17, after: 0 }, { fajr: 15, isha: 15, after: 0 }, { fajr: 19.5, isha: 17.5, after: 0 }, { fajr: 18.5, isha: 0, after: 90 }, { fajr: 18, isha: 18, after: 0 }];
   const meth = methods[method > 4 ? 0 : method] || methods[0];
-  if (!located) return previewSalahFallback();
+  if (!located) return previewSalahFallback(hr, mi);
   const { decl, eqt } = sunPosition(julian(y, m, d) - lon / 360);
   const tz = tzOffsetHours(tzName);
   const noon = wrap24(12 - eqt + tz - lon / 15);
@@ -874,20 +878,6 @@ function pvClip(ctx, x, y, w, h, text, color, font, align) {
   ctx.fillText(text, ax, y);
   ctx.restore();
 }
-function pvTileCheck(ctx, x, y, w, h, color) {
-  const ax = x + w - 16, ay = y + h - 14;
-  const bx = x + w - 10, by = y + h - 7;
-  const cx = x + w - 4, cy = y + h - 18;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 5;
-  ctx.lineCap = 'square';
-  ctx.lineJoin = 'miter';
-  ctx.beginPath();
-  ctx.moveTo(ax, ay);
-  ctx.lineTo(bx, by);
-  ctx.lineTo(cx, cy);
-  ctx.stroke();
-}
 function pvWifi(ctx, x, y, color) {
   for (let i = 0; i < 4; i++) {
     pvFill(ctx, x + i * 6, y + (3 - i) * 3, 4, 4 + i * 3, color);
@@ -950,7 +940,7 @@ function drawPaperCanvas() {
   const clock24 = document.getElementById('clock24').value === '1';
   const located = previewPlace.ready;
   let salah = previewSalahCompute(previewPlace.lat, previewPlace.lon, civil.y, civil.m, civil.d, civil.hr, civil.mi, method, madhab, located, tz);
-  if (!salah.valid) salah = previewSalahFallback();
+  if (!salah.valid) salah = previewSalahFallback(civil.hr, civil.mi);
   const fBody = '600 11px system-ui, sans-serif';
   const fBar = '700 12px system-ui, sans-serif';
   const fBig = '700 22px Georgia, serif';
@@ -986,18 +976,25 @@ function drawPaperCanvas() {
   const extra = span - (tw * 5 + gap * 4);
   if (blockOn('bPrayers')) {
     const boxed = frameOn('bFramePrayers');
+    const nowM = civil.hr * 60 + civil.mi;
     let x = 8;
     for (let i = 0; i < 5; i++) {
       const tile = tw + (i < extra ? 1 : 0);
       const y = 32, h = 56;
-      const current = salah.valid && salah.current === i;
-      const done = (paperPrayerMask & (1 << i)) !== 0;
-      const fill = done ? inks.alert : inks.accent;
-      let nameInk, timeInk;
-      pvFill(ctx, x, y, tile, h, fill);
-      nameInk = timeInk = (fill === INK[1] || fill === INK[2]) ? INK[0] : INK[1];
-      if (!done && current) pvFrame(ctx, x, y, tile, h, 4, inks.alert);
-      else if (!done && boxed) pvFrame(ctx, x, y, tile, h, 2, inks.frame);
+      const tapped = (paperPrayerMask & (1 << i)) !== 0;
+      const due = salah.valid && salah.minute[i] >= 0 && nowM >= salah.minute[i];
+      const open = due && salah.current === i;
+      const missed = due && !open && !tapped;
+      let nameInk = inks.body, timeInk = inks.body;
+      if (tapped) {
+        pvFill(ctx, x, y, tile, h, INK[2]);
+        nameInk = timeInk = INK[0];
+      } else if (missed) {
+        pvFill(ctx, x, y, tile, h, INK[3]);
+        nameInk = timeInk = INK[1];
+      } else if (boxed) {
+        pvFrame(ctx, x, y, tile, h, 2, inks.frame);
+      }
       const when = fmtPrayer(salah.valid ? salah.minute[i] : -1, clock24);
       pvClip(ctx, x + 4, y + 8, tile - 8, 16, upper(SALAH_NAMES[i]), nameInk, fSm, 'center');
       pvClip(ctx, x + 4, y + 28, tile - 8, 20, when, timeInk, '600 13px system-ui', 'center');
@@ -1510,6 +1507,7 @@ async function load() {
     document.getElementById('upperTitles').checked = d.upper_titles !== false;
     document.getElementById('salahMethod').value = String(d.salah_method ?? d.wind_unit ?? 0);
     document.getElementById('asrMadhab').value = String(d.asr_madhab ?? d.forecast_style) === '1' ? '1' : '0';
+    document.getElementById('adhan').checked = !!d.adhan;
     document.getElementById('themePreset').value = d.theme_preset ?? 0;
     document.getElementById('panelModel').value = String(d.panel_model ?? 0);
     ['Bar','Accent','Alert','Hi','Lo'].forEach(k => {
@@ -1746,6 +1744,7 @@ document.getElementById('deskBtn').onclick = async () => {
       upper_titles: document.getElementById('upperTitles').checked,
       salah_method: +document.getElementById('salahMethod').value,
       asr_madhab: +document.getElementById('asrMadhab').value,
+      adhan: document.getElementById('adhan').checked,
       borders: (document.getElementById('bFrameRamadan').checked ? 1 : 0) |
         (document.getElementById('bFrameSun').checked ? 2 : 0) |
         (document.getElementById('bFrameAsma').checked ? 4 : 0) |
@@ -1798,7 +1797,9 @@ const I18N = {
     helpPair: 'Hold the round button about two seconds. The paper shows six digits for about five minutes. Join QuranTrix-Setup and type the code here. Pairing on that network clears older phones and keeps this one. Up to four phones can be paired from your home network later.',
     helpWifi: 'The home network. After you save, the password stays on the device. This page does not keep it.',
     helpPlace: 'Prayer times use this place and its time zone. Search asks the desk first when it is on your home Wi‑Fi with internet, otherwise your phone. With no internet, pick a city from the built-in list or enter coordinates manually.',
-    helpPaper: 'The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and marks the highlighted prayer by filling its tile red.',
+    helpPaper: 'The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and fills that prayer yellow. A prayer that passed without a tap is red. The others have no fill.',
+    adhan: 'Adhan at prayer time',
+    adhanHint: 'Off until you turn it on. The speaker then plays the call at each prayer, and the paper refreshes at that minute. It stays quiet while the radio is already on.',
     helpTop: 'Weekday, date, time, place, Wi-Fi, and battery. Up moves an item toward the left. The clock follows the time zone. Choosing a place fills the zone in.',
     helpLook: 'Themes, texture, uppercase titles, and dark paper. Dark paper swaps black and paper. The sketch above matches the paper.',
     helpBorders: 'A frame around the prayers, the Ramadan count, sun times, the holiday, the dua, or the radio.',

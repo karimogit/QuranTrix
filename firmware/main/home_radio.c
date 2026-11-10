@@ -47,6 +47,7 @@ static int click_rate = 44100;
 static TaskHandle_t radio_task;
 static TaskHandle_t click_task;
 static volatile bool click_pending;
+static TaskHandle_t adhan_task;
 static SemaphoreHandle_t audio_mu;
 static bool radio_relaxed;
 static const audio_codec_data_if_t *codec_data;
@@ -1257,6 +1258,107 @@ static void click_task_fn(void *unused)
     audio_unlock();
     click_task_finish();
 }
+extern const uint8_t adhan_mp3_start[] asm("_binary_adhan_mp3_start");
+extern const uint8_t adhan_mp3_end[] asm("_binary_adhan_mp3_end");
+
+static void adhan_task_fn(void *unused)
+{
+    (void)unused;
+    const uint8_t *mp3 = adhan_mp3_start;
+    int len = (int)(adhan_mp3_end - adhan_mp3_start);
+    mp3dec_t *dec = NULL;
+    int16_t *pcm = NULL;
+    esp_codec_dev_handle_t dev = NULL;
+    i2s_chan_handle_t tx = NULL, rx = NULL;
+    i2c_master_bus_handle_t bus = NULL;
+    bool opened = false;
+    bool powered = false;
+    if (len < 64 || radio_run) {
+        if (radio_run)
+            ESP_LOGI(TAG, "Adhan skipped, radio is on");
+        adhan_task = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
+    audio_lock();
+    if (radio_run || speaker_open) {
+        ESP_LOGI(TAG, "Adhan skipped, speaker is busy");
+        audio_unlock();
+        adhan_task = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
+    dec = heap_caps_malloc(sizeof *dec, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!dec)
+        dec = heap_caps_malloc(sizeof *dec, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    pcm = heap_caps_malloc(1152 * 2 * sizeof(int16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!pcm)
+        pcm = heap_caps_malloc(1152 * 2 * sizeof(int16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!dec || !pcm) {
+        free(dec);
+        free(pcm);
+        audio_unlock();
+        adhan_task = NULL;
+        vTaskDelete(NULL);
+        return;
+    }
+    mp3dec_init(dec);
+    pm_for_audio(true);
+    audio_pins(1);
+    powered = true;
+    vTaskDelay(pdMS_TO_TICKS(80));
+    {
+        int off = 0;
+        while (off < len && !radio_run) {
+            mp3dec_frame_info_t info;
+            int16_t play[1152 * 2];
+            int samples = mp3dec_decode_frame(dec, mp3 + off, len - off, pcm, &info);
+            if (info.frame_bytes <= 0) {
+                off++;
+                continue;
+            }
+            off += info.frame_bytes;
+            if (samples <= 0)
+                continue;
+            if (!opened) {
+                int rate = play_rate_for(info.hz ? info.hz : 22050);
+                if (!hardware_open(rate, false, &dev, &tx, &rx, &bus)) {
+                    ESP_LOGE(TAG, "Adhan could not start the speaker");
+                    break;
+                }
+                opened = true;
+                speaker_open = true;
+                ESP_LOGI(TAG, "Adhan");
+            }
+            int ch = info.channels == 1 ? 1 : 2;
+            int frames = pack_play(pcm, samples, ch, play, 1152);
+            if (frames > 0 && dev)
+                write_pcm(dev, play, frames, 2);
+        }
+    }
+    speaker_open = false;
+    hardware_close(dev, tx, rx, bus);
+    if (powered)
+        audio_pins(0);
+    if (!radio_run)
+        pm_for_audio(false);
+    audio_unlock();
+    free(dec);
+    free(pcm);
+    adhan_task = NULL;
+    vTaskDelete(NULL);
+}
+
+void home_radio_adhan(void)
+{
+    if (radio_run || adhan_task)
+        return;
+    if (xTaskCreate(adhan_task_fn, "adhan", 24576, NULL, 6, &adhan_task) != pdPASS) {
+        adhan_task = NULL;
+        ESP_LOGW(TAG, "Adhan task was not created");
+    }
+}
+
 void home_radio_click(void)
 {
     if (speaker_open) {

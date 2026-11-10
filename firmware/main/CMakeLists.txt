@@ -14,7 +14,7 @@ idf_component_register(SRCS
     esp_driver_usb_serial_jtag esp_driver_i2c esp_driver_i2s esp_http_client esp_codec_dev
     esp_netif esp_wifi esp_http_server esp-tls mbedtls home_json nvs_flash
     bootloader_support esp_psram mdns home_qr esp_adc esp_app_format
-    EMBED_FILES ${ui_files})
+    EMBED_FILES ${ui_files} "adhan.mp3")
 if(HOME_PM_PROFILE)
     # Diagnostic build only: idf.py -DHOME_PM_PROFILE=1
     # Prints the power management locks once a minute and lets the device sleep on a cable,

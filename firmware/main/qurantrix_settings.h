@@ -94,7 +94,7 @@ typedef struct {
     uint8_t haiku_pick; /* 0 a new one each day, 1–30 a chosen poem */
     uint8_t reserved_haiku[3];
     uint8_t foot_order[QURANTRIX_FOOT_SLOTS]; /* brew, radio, haiku */
-    uint8_t reserved_foot;
+    uint8_t adhan; /* 1: play the call and refresh the paper at each prayer. Off until the phone turns it on. */
     uint8_t panel_model; /* HOME_PANEL_* : auto, NOTE4C, or NOTE4 monochrome */
 } qurantrix_settings_t;
 
