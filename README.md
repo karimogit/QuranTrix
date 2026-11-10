@@ -3,7 +3,7 @@
 A dashboard for Quran radio, prayer times, Islamic holidays, Ramadan schedules, Dua of the Day, and a daily reminder featuring one of the 99 Names of Allah.
 
 <p align="center">
-  <img src="docs/dashboard.png" alt="QuranTrix dashboard on a NOTE4C showing prayer times, Ramadan countdown, and Quran radio" width="400" />
+  <img src="docs/dashboard.png" alt="QuranTrix on a NOTE4C with prayer times, Ramadan countdown, and Quran radio on" width="400" />
 </p>
 
 ## Requirements
