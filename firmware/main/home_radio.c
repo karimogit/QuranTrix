@@ -1273,17 +1273,12 @@ static void adhan_task_fn(void *unused)
     i2c_master_bus_handle_t bus = NULL;
     bool opened = false;
     bool powered = false;
-    if (len < 64 || radio_run) {
+    /* Same gate as home_radio_adhan: radio, a chime, or another call already owns the speaker. */
+    if (len < 64 || radio_run || speaker_open || click_task) {
         if (radio_run)
             ESP_LOGI(TAG, "Adhan skipped, radio is on");
-        adhan_task = NULL;
-        vTaskDelete(NULL);
-        return;
-    }
-    audio_lock();
-    if (radio_run || speaker_open) {
-        ESP_LOGI(TAG, "Adhan skipped, speaker is busy");
-        audio_unlock();
+        else if (speaker_open || click_task)
+            ESP_LOGI(TAG, "Adhan skipped, speaker is busy");
         adhan_task = NULL;
         vTaskDelete(NULL);
         return;
@@ -1297,16 +1292,11 @@ static void adhan_task_fn(void *unused)
     if (!dec || !pcm) {
         free(dec);
         free(pcm);
-        audio_unlock();
         adhan_task = NULL;
         vTaskDelete(NULL);
         return;
     }
     mp3dec_init(dec);
-    pm_for_audio(true);
-    audio_pins(1);
-    powered = true;
-    vTaskDelay(pdMS_TO_TICKS(80));
     {
         int off = 0;
         while (off < len && !radio_run) {
@@ -1321,13 +1311,31 @@ static void adhan_task_fn(void *unused)
             if (samples <= 0)
                 continue;
             if (!opened) {
+                /* Lock only around open, like the radio stream. Playback stays unlocked so an
+                 * NFC tap can mix its chime through write_pcm, and so radio start is not blocked
+                 * for the whole call. */
+                audio_lock();
+                if (radio_run || speaker_open || click_task) {
+                    ESP_LOGI(TAG, "Adhan skipped, speaker is busy");
+                    audio_unlock();
+                    break;
+                }
+                pm_for_audio(true);
+                audio_pins(1);
+                powered = true;
+                vTaskDelay(pdMS_TO_TICKS(80));
                 int rate = play_rate_for(info.hz ? info.hz : 22050);
                 if (!hardware_open(rate, false, &dev, &tx, &rx, &bus)) {
                     ESP_LOGE(TAG, "Adhan could not start the speaker");
+                    hardware_close(dev, tx, rx, bus);
+                    audio_pins(0);
+                    powered = false;
+                    audio_unlock();
                     break;
                 }
                 opened = true;
                 speaker_open = true;
+                audio_unlock();
                 ESP_LOGI(TAG, "Adhan");
             }
             int ch = info.channels == 1 ? 1 : 2;
@@ -1337,6 +1345,7 @@ static void adhan_task_fn(void *unused)
         }
     }
     speaker_open = false;
+    audio_lock();
     hardware_close(dev, tx, rx, bus);
     if (powered)
         audio_pins(0);
@@ -1351,7 +1360,8 @@ static void adhan_task_fn(void *unused)
 
 void home_radio_adhan(void)
 {
-    if (radio_run || adhan_task)
+    /* Skip while the radio, a prayer chime, or another adhan already has the speaker. */
+    if (radio_run || adhan_task || click_task || speaker_open)
         return;
     if (xTaskCreate(adhan_task_fn, "adhan", 24576, NULL, 6, &adhan_task) != pdPASS) {
         adhan_task = NULL;

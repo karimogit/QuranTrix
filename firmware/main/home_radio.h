@@ -12,6 +12,7 @@ const char *home_radio_station_label(void);
 void home_radio_volume_step(int delta);
 /* A short tick. While the radio is playing it is mixed in; otherwise the speaker plays it alone. */
 void home_radio_click(void);
-/* The call to prayer, once. Skipped while the radio is already playing. */
+/* The call to prayer, once. Skipped while the radio, a chime, or the speaker is busy.
+ * An NFC tap during the call mixes through the same path as a radio tap. */
 void home_radio_adhan(void);
 #endif
