@@ -45,27 +45,27 @@ def clip_text(draw, xy, text, font, fill, mw):
     draw.text((x, y), s, font=font, fill=fill)
 
 
-def strike(draw, x1, x2, y, color):
-    draw.line([(x1, y), (x2, y)], fill=color, width=1)
-
-
 def wifi(draw, x, y, color):
     for i, h in enumerate([4, 7, 10, 13]):
         draw.rectangle([x + i * 6, y + 14 - h, x + i * 6 + 3, y + 14], fill=color)
 
 
-def salah_tile(draw, x, y, w, h, name, when, current, done, boxed, bold, reg):
-    ink = BLACK
-    if current:
+def salah_tile(draw, x, y, w, h, name, when, state, boxed, bold, reg):
+    """tap/done is yellow, past is red, now is a border. Ahead of now stays on the paper."""
+    tapped = state in ("tap", "done", "now-tap")
+    past = state == "past"
+    current = state in ("now", "now-tap")
+    ink = PAPER if past else BLACK
+    if tapped:
+        draw.rectangle([x, y, x + w, y + h], fill=GOLD)
+    elif past:
         draw.rectangle([x, y, x + w, y + h], fill=RED)
-        ink = PAPER
-    elif boxed:
+    if current:
+        frame(draw, x, y, w, h, BLACK if tapped else RED, 4)
+    elif boxed and not tapped and not past:
         frame(draw, x, y, w, h, RED, 2)
     draw.text((x + w / 2, y + 4), name, font=reg, fill=ink, anchor="ma")
     draw.text((x + w / 2, y + 20), when, font=bold, fill=ink, anchor="ma")
-    if done:
-        strike(draw, x + 4, x + w - 4, y + 12, ink)
-        strike(draw, x + 4, x + w - 4, y + 28, ink)
 
 
 def draw_board(spec):
@@ -92,7 +92,7 @@ def draw_board(spec):
     names = ["FAJR", "DHUHR", "ASR", "MAGHRIB", "ISHA"]
     for i, (tm, st) in enumerate(spec["prayers"]):
         x = 8 + i * (tw + gap)
-        salah_tile(draw, x, 32, tw, 58, names[i], tm, st == "now", st == "done", True, bold, tiny)
+        salah_tile(draw, x, 32, tw, 58, names[i], tm, st, True, bold, tiny)
 
     y, h = 94, 44
     band, half = W - 16, (W - 16 - 4) // 2
@@ -151,7 +151,7 @@ TODAY = {
     ],
     "wifi": True,
     "prayers": [
-        ("05:53", "done"),
+        ("05:53", "past"),
         ("12:24", "now"),
         ("14:34", ""),
         ("16:57", ""),
@@ -183,7 +183,7 @@ RAMADAN = {
     ],
     "wifi": True,
     "prayers": [
-        ("05:53", "done"),
+        ("05:53", "past"),
         ("12:24", "now"),
         ("14:34", ""),
         ("16:57", ""),

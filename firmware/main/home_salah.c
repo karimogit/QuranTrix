@@ -263,12 +263,13 @@ bool home_salah_compute(double lat, double lon, int32_t tz_offset_sec, const str
         if (isfinite(asr))
             out->minute[SALAH_ASR] = minute_of(noon + asr);
     }
-    out->valid = out->minute[SALAH_DHUHR] >= 0 && out->minute[SALAH_MAGHRIB] >= 0 &&
-                 out->minute[SALAH_FAJR] >= 0 && out->minute[SALAH_ISHA] >= 0;
+    out->valid = out->minute[SALAH_DHUHR] >= 0 && out->minute[SALAH_ASR] >= 0 &&
+                 out->minute[SALAH_MAGHRIB] >= 0 && out->minute[SALAH_FAJR] >= 0 &&
+                 out->minute[SALAH_ISHA] >= 0;
     if (!out->valid)
         return true;
     now_m = local->tm_hour * 60 + local->tm_min;
-    out->current = SALAH_FAJR;
+    out->current = -1;
     for (i = 0; i < SALAH_COUNT; i++)
         if (out->minute[i] >= 0 && now_m >= out->minute[i])
             out->current = i;
@@ -365,14 +366,19 @@ int main(void)
     struct tm tm = {.tm_year = 126, .tm_mon = 10, .tm_mday = 9, .tm_hour = 13, .tm_min = 0};
     home_salah_day_t day;
     home_salah_compute(52.3676, 4.9041, 3600, &tm, 0, 0, true, &day);
+    struct tm night = {.tm_year = 126, .tm_mon = 10, .tm_mday = 9, .tm_hour = 2, .tm_min = 0};
+    home_salah_day_t early;
+    home_salah_compute(52.3676, 4.9041, 3600, &night, 0, 0, true, &early);
     printf("valid %d fajr %d dhuhr %d asr %d maghrib %d isha %d current %d\n", day.valid,
            day.minute[0], day.minute[1], day.minute[2], day.minute[3], day.minute[4], day.current);
+    printf("night valid %d current %d\n", early.valid, early.current);
     printf("hijri %d-%d-%d in %d days %d\n", day.hy, day.hm, day.hd, day.in_ramadan,
            day.ramadan_days);
     printf("holiday %s in %d days on %d/%d\n", day.holiday, day.holiday_days, day.holiday_day,
            day.holiday_month);
-    return day.valid && day.minute[0] == 5 * 60 + 53 && day.minute[1] == 12 * 60 + 24 &&
-                   day.ramadan_days == 91 && !day.in_ramadan
+    return day.valid && day.current == SALAH_DHUHR && day.minute[SALAH_ASR] > 13 * 60 &&
+                   early.valid && early.current < 0 && day.minute[0] == 5 * 60 + 53 &&
+                   day.minute[1] == 12 * 60 + 24 && day.ramadan_days == 91 && !day.in_ramadan
                ? 0
                : 1;
 }

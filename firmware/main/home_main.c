@@ -1035,6 +1035,7 @@ void app_main(void)
     home_runtime.request_id++;
     ESP_ERROR_CHECK(home_panel_init());
     qurantrix_settings_init();
+    home_radio_init();
     home_desk_init();
 #ifdef HOME_TESTCARD
     /* Measurement build (-DHOME_TESTCARD=1): show the test cards and stop

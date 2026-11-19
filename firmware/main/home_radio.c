@@ -15,6 +15,7 @@
 #include "esp_timer.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
@@ -40,6 +41,7 @@ static const gpio_num_t AUDIO_PWR = GPIO_NUM_42;
 static const gpio_num_t AUDIO_PA = GPIO_NUM_46;
 
 static volatile bool radio_run;
+static volatile bool speaker_open;
 static volatile int volume = 70;
 static volatile int click_left;
 static int click_phase;
@@ -50,17 +52,25 @@ static volatile bool click_pending;
 static TaskHandle_t adhan_task;
 static SemaphoreHandle_t audio_mu;
 static bool radio_relaxed;
-static const audio_codec_data_if_t *codec_data;
-static const audio_codec_ctrl_if_t *codec_ctrl;
-static const audio_codec_gpio_if_t *codec_gpio;
-static const audio_codec_if_t *codec_if;
 
 bool home_radio_on(void) { return radio_run; }
 
+static void audio_mu_create(void)
+{
+    if (audio_mu)
+        return;
+    SemaphoreHandle_t created = xSemaphoreCreateMutex();
+    SemaphoreHandle_t expected = NULL;
+    if (!__atomic_compare_exchange_n(&audio_mu, &expected, created, false, __ATOMIC_RELEASE,
+                                    __ATOMIC_RELAXED)) {
+        if (created)
+            vSemaphoreDelete(created);
+    }
+}
+void home_radio_init(void) { audio_mu_create(); }
 static void audio_lock(void)
 {
-    if (!audio_mu)
-        audio_mu = xSemaphoreCreateMutex();
+    audio_mu_create();
     if (audio_mu)
         xSemaphoreTake(audio_mu, portMAX_DELAY);
 }
@@ -187,13 +197,60 @@ static bool i2s_queue(i2s_chan_handle_t *tx, int desc, int frames, const i2s_std
     *tx = NULL;
     return false;
 }
-static bool hardware_open(int rate, bool stream, esp_codec_dev_handle_t *dev, i2s_chan_handle_t *tx,
-                          i2s_chan_handle_t *rx, i2c_master_bus_handle_t *bus)
+/* One open owns these handles. Close frees this session only, never another task's codec. */
+typedef struct {
+    esp_codec_dev_handle_t dev;
+    i2s_chan_handle_t tx;
+    i2s_chan_handle_t rx;
+    i2c_master_bus_handle_t bus;
+    const audio_codec_data_if_t *data;
+    const audio_codec_ctrl_if_t *ctrl;
+    const audio_codec_gpio_if_t *gpio;
+    const audio_codec_if_t *codec;
+} audio_hw_t;
+
+static void hardware_close(audio_hw_t *hw)
 {
-    *dev = NULL;
-    *tx = NULL;
-    *rx = NULL;
-    *bus = NULL;
+    if (!hw)
+        return;
+    if (hw->dev) {
+        esp_codec_dev_close(hw->dev);
+        esp_codec_dev_delete(hw->dev);
+        hw->dev = NULL;
+    }
+    if (hw->codec) {
+        audio_codec_delete_codec_if(hw->codec);
+        hw->codec = NULL;
+    }
+    if (hw->ctrl) {
+        audio_codec_delete_ctrl_if(hw->ctrl);
+        hw->ctrl = NULL;
+    }
+    if (hw->gpio) {
+        audio_codec_delete_gpio_if(hw->gpio);
+        hw->gpio = NULL;
+    }
+    if (hw->data) {
+        audio_codec_delete_data_if(hw->data);
+        hw->data = NULL;
+    }
+    if (hw->tx) {
+        i2s_del_channel(hw->tx);
+        hw->tx = NULL;
+    }
+    if (hw->rx) {
+        i2s_del_channel(hw->rx);
+        hw->rx = NULL;
+    }
+    if (hw->bus) {
+        i2c_del_master_bus(hw->bus);
+        hw->bus = NULL;
+    }
+}
+
+static bool hardware_open(audio_hw_t *hw, int rate, bool stream)
+{
+    memset(hw, 0, sizeof *hw);
     if (rate < 8000 || rate > 96000)
         rate = 44100;
     i2c_master_bus_config_t bus_cfg = {
@@ -204,7 +261,7 @@ static bool hardware_open(int rate, bool stream, esp_codec_dev_handle_t *dev, i2
         .glitch_ignore_cnt = 7,
         .flags.enable_internal_pullup = true,
     };
-    if (i2c_new_master_bus(&bus_cfg, bus) != ESP_OK)
+    if (i2c_new_master_bus(&bus_cfg, &hw->bus) != ESP_OK)
         return false;
     /* The queue is internal memory, and Wi-Fi needs what is left. Gaps are covered by the
      * playback buffer in external memory, so this stays small. A queue that does not fit
@@ -222,66 +279,62 @@ static bool hardware_open(int rate, bool stream, esp_codec_dev_handle_t *dev, i2
     bool opened = false;
     static const int queue[][2] = {{4, 240}, {3, 120}};
     for (size_t i = 0; i < sizeof queue / sizeof queue[0] && !opened; i++)
-        opened = i2s_queue(tx, queue[i][0], queue[i][1], &std);
+        opened = i2s_queue(&hw->tx, queue[i][0], queue[i][1], &std);
     (void)stream;
-    *rx = NULL;
-    if (!opened)
+    if (!opened) {
+        hardware_close(hw);
         return false;
-    audio_codec_i2s_cfg_t i2s_cfg = {.port = I2S_NUM_0, .rx_handle = *rx, .tx_handle = *tx};
-    codec_data = audio_codec_new_i2s_data(&i2s_cfg);
+    }
+    audio_codec_i2s_cfg_t i2s_cfg = {.port = I2S_NUM_0, .rx_handle = hw->rx, .tx_handle = hw->tx};
     audio_codec_i2c_cfg_t i2c_cfg = {
-        .port = I2C_NUM_0, .addr = ES8311_CODEC_DEFAULT_ADDR, .bus_handle = *bus};
-    codec_ctrl = audio_codec_new_i2c_ctrl(&i2c_cfg);
-    codec_gpio = audio_codec_new_gpio();
+        .port = I2C_NUM_0, .addr = ES8311_CODEC_DEFAULT_ADDR, .bus_handle = hw->bus};
+    hw->data = audio_codec_new_i2s_data(&i2s_cfg);
+    hw->ctrl = audio_codec_new_i2c_ctrl(&i2c_cfg);
+    hw->gpio = audio_codec_new_gpio();
+    if (!hw->data || !hw->ctrl || !hw->gpio) {
+        hardware_close(hw);
+        return false;
+    }
     es8311_codec_cfg_t codec_cfg = {
-        .ctrl_if = codec_ctrl,
-        .gpio_if = codec_gpio,
+        .ctrl_if = hw->ctrl,
+        .gpio_if = hw->gpio,
         .codec_mode = ESP_CODEC_DEV_WORK_MODE_DAC,
         .pa_pin = AUDIO_PA,
         .use_mclk = true,
         .hw_gain.pa_voltage = 5.0f,
         .hw_gain.codec_dac_voltage = 3.3f,
     };
-    codec_if = es8311_codec_new(&codec_cfg);
-    if (!codec_data || !codec_ctrl || !codec_gpio || !codec_if)
+    hw->codec = es8311_codec_new(&codec_cfg);
+    if (!hw->codec) {
+        hardware_close(hw);
         return false;
+    }
     esp_codec_dev_cfg_t dev_cfg = {
-        .dev_type = ESP_CODEC_DEV_TYPE_OUT, .codec_if = codec_if, .data_if = codec_data};
-    *dev = esp_codec_dev_new(&dev_cfg);
+        .dev_type = ESP_CODEC_DEV_TYPE_OUT, .codec_if = hw->codec, .data_if = hw->data};
+    hw->dev = esp_codec_dev_new(&dev_cfg);
     esp_codec_dev_sample_info_t fs = {
         .bits_per_sample = 16, .channel = 2, .sample_rate = (uint32_t)rate, .mclk_multiple = 256};
-    if (!*dev || esp_codec_dev_open(*dev, &fs) != ESP_CODEC_DEV_OK)
+    if (!hw->dev || esp_codec_dev_open(hw->dev, &fs) != ESP_CODEC_DEV_OK) {
+        hardware_close(hw);
         return false;
+    }
     click_rate = rate;
-    esp_codec_dev_set_out_vol(*dev, volume);
+    esp_codec_dev_set_out_vol(hw->dev, volume);
     return true;
 }
 
-static void hardware_close(esp_codec_dev_handle_t dev, i2s_chan_handle_t tx, i2s_chan_handle_t rx,
-                           i2c_master_bus_handle_t bus)
+/* Drop the mix flag and the device together. A tap waiting on the mutex then opens its own
+ * speaker instead of a second codec on a port this task still holds. */
+static void speaker_shutdown(audio_hw_t *hw, bool *powered)
 {
-    if (dev) {
-        esp_codec_dev_close(dev);
-        esp_codec_dev_delete(dev);
+    audio_lock();
+    speaker_open = false;
+    hardware_close(hw);
+    if (powered && *powered) {
+        audio_pins(0);
+        *powered = false;
     }
-    if (codec_if)
-        audio_codec_delete_codec_if(codec_if);
-    if (codec_ctrl)
-        audio_codec_delete_ctrl_if(codec_ctrl);
-    if (codec_gpio)
-        audio_codec_delete_gpio_if(codec_gpio);
-    if (codec_data)
-        audio_codec_delete_data_if(codec_data);
-    codec_if = NULL;
-    codec_ctrl = NULL;
-    codec_gpio = NULL;
-    codec_data = NULL;
-    if (tx)
-        i2s_del_channel(tx);
-    if (rx)
-        i2s_del_channel(rx);
-    if (bus)
-        i2c_del_master_bus(bus);
+    audio_unlock();
 }
 
 /* Three rising notes, a small cafe bell. Each note decays, then a short rest. */
@@ -374,7 +427,6 @@ static int pack_play(const int16_t *pcm, int samples, int ch, int16_t *dst, int 
 static uint8_t *mp3_ring;
 static int mp3_r, mp3_w;
 static int stream_fd = -1;
-static volatile bool speaker_open;
 static TaskHandle_t net_task;
 static volatile bool net_run;
 static uint8_t body_hold[1536];
@@ -1071,9 +1123,8 @@ static bool play_url(const char *url, mp3dec_t *dec)
         vTaskDelay(pdMS_TO_TICKS(20));
     int src_rate = 44100;
     int stream_rate = 0;
-    esp_codec_dev_handle_t dev = NULL;
-    i2s_chan_handle_t tx = NULL, rx = NULL;
-    i2c_master_bus_handle_t bus = NULL;
+    audio_hw_t hw;
+    memset(&hw, 0, sizeof hw);
     bool opened = false, powered = false;
     bool ok = false;
     int off = 0;
@@ -1115,15 +1166,20 @@ static bool play_url(const char *url, mp3dec_t *dec)
             int rate = play_rate_for(src_rate);
             stream_rate = rate;
             audio_lock();
+            /* Adhan still owns the port. Leave the mutex so it can close, then try again. */
+            if (speaker_open) {
+                audio_unlock();
+                vTaskDelay(pdMS_TO_TICKS(20));
+                continue;
+            }
             audio_pins(1);
             powered = true;
             vTaskDelay(pdMS_TO_TICKS(80));
             radio_for_stream(true);
             pm_for_audio(true);
-            if (!hardware_open(rate, true, &dev, &tx, &rx, &bus)) {
+            if (!hardware_open(&hw, rate, true)) {
                 ESP_LOGE(TAG, "Speaker codec did not start");
-                hardware_close(dev, tx, rx, bus);
-                dev = NULL;
+                hardware_close(&hw);
                 audio_pins(0);
                 powered = false;
                 audio_unlock();
@@ -1140,21 +1196,15 @@ static bool play_url(const char *url, mp3dec_t *dec)
         int ch = info.channels == 1 ? 1 : 2;
         int16_t play[1152 * 2];
         int frames = pack_play(pcm, samples, ch, play, 1152);
-        if (frames > 0 && dev)
-            write_pcm(dev, play, frames, 2);
+        if (frames > 0 && hw.dev)
+            write_pcm(hw.dev, play, frames, 2);
         ok = true;
     }
     net_run = false;
     for (int i = 0; i < 50 && net_task; i++)
         vTaskDelay(pdMS_TO_TICKS(20));
     net_stop();
-    speaker_open = false;
-    audio_lock();
-    hardware_close(dev, tx, rx, bus);
-    if (powered)
-        audio_pins(0);
-    if (opened)
-        audio_unlock();
+    speaker_shutdown(&hw, &powered);
     free(in);
     free(pcm);
     return ok;
@@ -1241,17 +1291,17 @@ static void click_task_fn(void *unused)
     pm_for_audio(true);
     audio_pins(1);
     vTaskDelay(pdMS_TO_TICKS(80));
-    esp_codec_dev_handle_t dev = NULL;
-    i2s_chan_handle_t tx = NULL, rx = NULL;
-    i2c_master_bus_handle_t bus = NULL;
-    if (hardware_open(16000, false, &dev, &tx, &rx, &bus)) {
+    audio_hw_t hw;
+    memset(&hw, 0, sizeof hw);
+    if (hardware_open(&hw, 16000, false)) {
         int loud = volume < 90 ? 90 : volume;
-        esp_codec_dev_set_out_vol(dev, loud);
-        write_chime(dev, 16000);
+        esp_codec_dev_set_out_vol(hw.dev, loud);
+        write_chime(hw.dev, 16000);
         ESP_LOGI(TAG, "Prayer chime");
     } else
         ESP_LOGW(TAG, "Chime could not start the speaker");
-    hardware_close(dev, tx, rx, bus);
+    speaker_open = false;
+    hardware_close(&hw);
     audio_pins(0);
     if (!radio_run)
         pm_for_audio(false);
@@ -1268,11 +1318,11 @@ static void adhan_task_fn(void *unused)
     int len = (int)(adhan_mp3_end - adhan_mp3_start);
     mp3dec_t *dec = NULL;
     int16_t *pcm = NULL;
-    esp_codec_dev_handle_t dev = NULL;
-    i2s_chan_handle_t tx = NULL, rx = NULL;
-    i2c_master_bus_handle_t bus = NULL;
+    audio_hw_t hw;
+    memset(&hw, 0, sizeof hw);
     bool opened = false;
     bool powered = false;
+    bool held_pm = false;
     /* Same gate as home_radio_adhan: radio, a chime, or another call already owns the speaker. */
     if (len < 64 || radio_run || speaker_open || click_task) {
         if (radio_run)
@@ -1321,13 +1371,14 @@ static void adhan_task_fn(void *unused)
                     break;
                 }
                 pm_for_audio(true);
+                held_pm = true;
                 audio_pins(1);
                 powered = true;
                 vTaskDelay(pdMS_TO_TICKS(80));
                 int rate = play_rate_for(info.hz ? info.hz : 22050);
-                if (!hardware_open(rate, false, &dev, &tx, &rx, &bus)) {
+                if (!hardware_open(&hw, rate, false)) {
                     ESP_LOGE(TAG, "Adhan could not start the speaker");
-                    hardware_close(dev, tx, rx, bus);
+                    hardware_close(&hw);
                     audio_pins(0);
                     powered = false;
                     audio_unlock();
@@ -1340,18 +1391,13 @@ static void adhan_task_fn(void *unused)
             }
             int ch = info.channels == 1 ? 1 : 2;
             int frames = pack_play(pcm, samples, ch, play, 1152);
-            if (frames > 0 && dev)
-                write_pcm(dev, play, frames, 2);
+            if (frames > 0 && hw.dev)
+                write_pcm(hw.dev, play, frames, 2);
         }
     }
-    speaker_open = false;
-    audio_lock();
-    hardware_close(dev, tx, rx, bus);
-    if (powered)
-        audio_pins(0);
-    if (!radio_run)
+    speaker_shutdown(&hw, &powered);
+    if (held_pm && !radio_run)
         pm_for_audio(false);
-    audio_unlock();
     free(dec);
     free(pcm);
     adhan_task = NULL;

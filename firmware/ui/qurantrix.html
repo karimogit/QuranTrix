@@ -772,7 +772,7 @@ function tzOffsetHours(tz) {
 function previewSalahFallback(hr, mi) {
   const minute = [353, 744, 874, 1017, 1128];
   const now_m = (hr || 0) * 60 + (mi || 0);
-  let current = 0;
+  let current = -1;
   for (let i = 0; i < 5; i++) if (now_m >= minute[i]) current = i;
   return { minute, sunrise: 462, sunset: 1017, valid: true, current };
 }
@@ -803,9 +803,9 @@ function previewSalahCompute(lat, lon, y, m, d, hr, mi, method, madhab, located,
   const ang = -Math.atan(1 / delta) * 180 / Math.PI;
   const asr = hourAngle(ang, lat, decl);
   if (Number.isFinite(asr)) out.minute[2] = minuteOf(noon + asr);
-  out.valid = out.minute[0] >= 0 && out.minute[1] >= 0 && out.minute[3] >= 0 && out.minute[4] >= 0;
+  out.valid = out.minute[0] >= 0 && out.minute[1] >= 0 && out.minute[2] >= 0 && out.minute[3] >= 0 && out.minute[4] >= 0;
   const now_m = hr * 60 + mi;
-  out.current = 0;
+  out.current = -1;
   for (let i = 0; i < 5; i++) if (out.minute[i] >= 0 && now_m >= out.minute[i]) out.current = i;
   return out;
 }

@@ -2,6 +2,8 @@
 #define HOME_RADIO_H
 #include <stdbool.h>
 /* Live Quran streams. The addresses are stored with the desk settings. */
+/* The speaker mutex. Call once before NFC or the radio can start. */
+void home_radio_init(void);
 void home_radio_toggle(void);
 bool home_radio_on(void);
 /* Hold the upper side button: next station; hold the lower side button: previous. */

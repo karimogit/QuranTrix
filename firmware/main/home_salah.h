@@ -16,7 +16,7 @@ typedef struct {
     int minute[SALAH_COUNT];
     int sunrise; /* local minutes, sun at 0.833 deg */
     int sunset;
-    int current; /* 0..4, the prayer a tap marks. -1 until the clock and place are known. */
+    int current; /* 0..4, the prayer a tap marks. -1 before Fajr, and until the clock and place are known. */
     int hy, hm, hd;
     bool in_ramadan;
     int ramadan_days;
