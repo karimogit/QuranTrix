@@ -14,6 +14,7 @@
 #include "home_qr.h"
 #include "home_sky.h"
 #include "generated/home_font.h"
+#include "esp_log.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -367,6 +368,18 @@ static void rect(canvas_t *c, int x, int y, int w, int h, int p)
     for (int yy = imax(y, 0); yy < imin(y + h, H); ++yy)
         for (int xx = imax(x, 0); xx < imin(x + w, W); ++xx)
             pixel(c, xx, yy, p);
+}
+/* Prayer fills must reach the panel as real yellow/red even when other rules soften colour. */
+static void pigment_rect(canvas_t *c, int x, int y, int w, int h, int p)
+{
+    if (!c || !c->frame)
+        return;
+    for (int yy = imax(y, 0); yy < imin(y + h, H); ++yy)
+        for (int xx = imax(x, 0); xx < imin(x + w, W); ++xx) {
+            unsigned i = (unsigned)yy * 100u + (unsigned)xx / 4u;
+            unsigned shift = 6u - ((unsigned)xx % 4u) * 2u;
+            c->frame[i] = (uint8_t)((c->frame[i] & ~(3u << shift)) | ((unsigned)p << shift));
+        }
 }
 static void frame_rect(canvas_t *c, int x, int y, int w, int h, int t, int p)
 {
@@ -2933,15 +2946,17 @@ static void salah_tile(canvas_t *c, int x, int y, int w, int h, const char *name
 {
     int name_ink = body;
     int time_ink = body;
+    (void)alert;
     /* Yellow is a tap. Red is a prayer that already passed without one. The current prayer
-     * and the ones still ahead stay on the paper until a tap. The current tile always
-     * keeps a border: red on paper, black once the tap fills it yellow. */
+     * and the ones still ahead stay on the paper until a tap. */
     if (fill == YELLOW || fill == RED) {
-        rect(c, x, y, w, h, fill);
+        /* Write the pigment straight into the frame. Intensity 0 and the mono
+         * panel setting would otherwise turn this red into black. */
+        pigment_rect(c, x, y, w, h, fill);
         name_ink = time_ink = ink_on_fill(fill);
     }
     if (current)
-        frame_rect(c, x, y, w, h, 4, fill == YELLOW ? BLACK : alert);
+        frame_rect(c, x, y, w, h, 4, fill == YELLOW ? BLACK : RED);
     else if (fill != YELLOW && fill != RED && boxed)
         frame_rect(c, x, y, w, h, 2, frame);
     clip_aligned(c, x + 4, y + 8, w - 8, 16, 0, name_ink, name, 1);
@@ -2978,6 +2993,7 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
     salah.current = -1;
     salah.holiday_days = -1;
     have_clock = now > 0 && home_localtime(cfg, (time_t)now, &local);
+    int now_m = have_clock ? local.tm_hour * 60 + local.tm_min : -1;
     if (have_clock) {
         int32_t off = 0;
         home_tz_offset_at(cfg->timezone, now, &off, NULL);
@@ -2994,6 +3010,7 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
         int extra = span - (tw * SALAH_COUNT + gap * (SALAH_COUNT - 1));
         int mask = prayers < 0 ? 0 : prayers;
         int x = 8;
+        int fills[SALAH_COUNT];
         for (int i = 0; i < SALAH_COUNT; i++) {
             char when[12], name[16];
             int tile = tw + (i < extra ? 1 : 0);
@@ -3001,13 +3018,21 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
             snprintf(name, sizeof name, "%s", home_salah_name(i));
             qurantrix_upper_box_title(name, js.upper_titles);
             bool tapped = (mask & (1 << i)) != 0;
-            bool current = salah.valid && salah.current == i;
-            bool past = salah.valid && salah.current > i;
+            bool current = salah.current == i;
+            /* Missed means the time is already behind us. Do not also require salah.valid:
+             * one failed angle used to blank every tile, including the ones with a real time. */
+            bool past = !tapped && !current && salah.minute[i] >= 0 && now_m > salah.minute[i];
             int fill = tapped ? YELLOW : past ? RED : -1;
+            fills[i] = fill;
             salah_tile(&c, x, 32, tile, 56, name, when, fill, current,
                        (js.borders & QURAN_FRAME_TILES) != 0, ink.alert, ink.body, ink.frame);
             x += tile + gap;
         }
+        ESP_LOGI("home_render",
+                 "prayers now=%02d:%02d place=%.24s tz=%s mins=%d,%d,%d,%d,%d cur=%d fill=%d,%d,%d,%d,%d",
+                 now_m < 0 ? -1 : now_m / 60, now_m < 0 ? -1 : now_m % 60, cfg->location,
+                 cfg->timezone, salah.minute[0], salah.minute[1], salah.minute[2], salah.minute[3],
+                 salah.minute[4], salah.current, fills[0], fills[1], fills[2], fills[3], fills[4]);
     }
     {
         bool moon_on = qurantrix_block_on(&js, QURAN_BLK_FORECAST);
@@ -3017,12 +3042,13 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
             if (moon_on) {
                 int x = 8;
                 int w = sun_on ? half : band;
-                char num[8], hijri[48], word_buf[32];
+                char num[8], hijri[48], greg[24], word_buf[32];
                 const char *word;
                 int nw;
                 if (js.borders & QURAN_FRAME_FORECAST)
                     frame_rect(&c, x, y, w, h, 2, ink.frame);
                 hijri[0] = 0;
+                greg[0] = 0;
                 if (!cfg->location_ready) {
                     snprintf(num, sizeof num, "--");
                     snprintf(word_buf, sizeof word_buf, "%s",
@@ -3039,6 +3065,9 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
                                          : tr(c.lang, "days to Ramadan", "dni do Ramadanu");
                     snprintf(hijri, sizeof hijri, "%d %s %d", salah.hd, home_hijri_month(salah.hm),
                              salah.hy);
+                    if (salah.ramadan_gy > 0)
+                        snprintf(greg, sizeof greg, "%d %s %d", salah.ramadan_gd,
+                                 month_short(c.lang, salah.ramadan_gm - 1), salah.ramadan_gy);
                 } else {
                     snprintf(num, sizeof num, "--");
                     snprintf(word_buf, sizeof word_buf, "%s",
@@ -3050,8 +3079,10 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
                 clip_aligned(&c, x + 8, y + (h / 2) - 20, nw + 4, 36, 3, ink.temp_main, num, 0);
                 clip_aligned(&c, x + 16 + nw, y + 16, w - 24 - nw, 14, 6, ink.body, word, 0);
                 if (hijri[0])
-                    clip_aligned(&c, x + 16 + nw, y + 32, w - 24 - nw, 14, 6, ink_on_paper(ink.accent),
+                    clip_aligned(&c, x + 16 + nw, y + 30, w - 24 - nw, 14, 6, ink_on_paper(ink.accent),
                                  hijri, 0);
+                if (greg[0])
+                    clip_aligned(&c, x + 16 + nw, y + 44, w - 24 - nw, 12, 6, ink.body, greg, 0);
             }
             if (sun_on) {
                 int x = moon_on ? 8 + half + 4 : 8;

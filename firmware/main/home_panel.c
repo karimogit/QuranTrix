@@ -261,6 +261,19 @@ esp_err_t home_panel_init(void)
     return ESP_OK;
 }
 
+static bool frame_has_colour(const uint8_t *frame)
+{
+    for (size_t i = 0; i < HOME_PANEL_FRAME_BYTES; ++i) {
+        uint8_t b = frame[i];
+        for (unsigned n = 0; n < 4u; ++n) {
+            unsigned pigment = (b >> (6u - n * 2u)) & 3u;
+            if (pigment >= 2u)
+                return true;
+        }
+    }
+    return false;
+}
+
 static void frame_to_1bpp(const uint8_t *color, uint8_t *bw)
 {
     memset(bw, 0xFF, NOTE4_1BPP_FRAME_BYTES);
@@ -398,8 +411,13 @@ esp_err_t home_panel_show(const uint8_t *frame, size_t len)
     if (check_owner(false) != ESP_OK || panel_state != PANEL_OFF) {
         return ESP_ERR_INVALID_STATE;
     }
-    if (home_board_mono())
-        return panel_show_note4(frame);
+    if (home_board_mono()) {
+        if (frame_has_colour(frame)) {
+            ESP_LOGW(TAG,
+                     "NOTE4 model is selected but the frame has yellow/red; using NOTE4C driver");
+        } else
+            return panel_show_note4(frame);
+    }
     int64_t start = esp_timer_get_time();
     panel_state = PANEL_ACTIVE;
     PANEL_TRY(set_rail(1), "rail on");

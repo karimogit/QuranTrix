@@ -498,6 +498,10 @@ static uint8_t *loop_work;
 static int64_t loop_last_status, loop_last_minute;
 static bool prayer_paint;
 static bool prayer_minute_seen;
+static int loop_prayer_current = -2;
+static int loop_prayer_day;
+static uint8_t loop_prayer_mask;
+static int64_t loop_last_prayer_layout_min = -1;
 static bool loop_drew_setup; /* the picture on the display is the setup card */
 static bool loop_have_hash;
 static uint8_t loop_last_hash[32];
@@ -608,6 +612,38 @@ void home_loop_poke(void)
 {
     if (key_event)
         xSemaphoreGive(key_event);
+}
+
+static void prayer_layout_refresh(const home_config_t *c, const struct tm *local, time_t now,
+                                  int mask)
+{
+    home_salah_day_t salah;
+    qurantrix_settings_t js;
+    int32_t off = 0;
+
+    qurantrix_settings_get(&js);
+    if (!home_tz_offset_at(c->timezone, now, &off, NULL))
+        return;
+    if (!home_salah_compute(c->latitude, c->longitude, off, local,
+                            js.wind_unit > 4 ? 0 : js.wind_unit,
+                            js.forecast_style > 1 ? 0 : js.forecast_style, true, &salah) ||
+        !salah.valid)
+        return;
+    int day = (local->tm_year + 1900) * 1000 + local->tm_yday;
+    int tap_mask = mask & 0x1f;
+    bool changed = loop_prayer_current == -2 || salah.current != loop_prayer_current ||
+                     day != loop_prayer_day || tap_mask != loop_prayer_mask;
+    loop_prayer_current = salah.current;
+    loop_prayer_day = day;
+    loop_prayer_mask = (uint8_t)tap_mask;
+    if (!changed)
+        return;
+    prayer_paint = true;
+    home_lock();
+    home_runtime.dirty = true;
+    home_runtime.force_show = true;
+    home_runtime.request_id++;
+    home_unlock();
 }
 
 void home_loop_step(void)
@@ -819,6 +855,16 @@ void home_loop_step(void)
         dirty = true;
         force = true;
     }
+    if (!setup && c->location_ready && now >= 1704067200) {
+        struct tm prayer_local;
+        if (home_localtime(c, now, &prayer_local)) {
+            int64_t layout_min = now / 60;
+            if (loop_prayer_current == -2 || layout_min != loop_last_prayer_layout_min) {
+                loop_last_prayer_layout_min = layout_min;
+                prayer_layout_refresh(c, &prayer_local, now, home_desk_prayers());
+            }
+        }
+    }
     bool hold_paper = home_desk_radio() && !force && loop_have_hash && !setup && !info_open;
     if (!setup && !info_open && dirty && !force && loop_have_hash && valid) {
         if (home_desk_night_quiet(&local) || !home_desk_periodic_due(mono)) {
@@ -879,8 +925,8 @@ void home_loop_step(void)
                     rssi = 0; /* saved, radio asleep between updates */
                 home_unlock();
             }
-            home_render_dashboard(c, d, valid ? now : 0, batt, charging, rssi, home_desk_prayers(),
-                                  home_desk_radio(), work);
+            home_render_dashboard(c, d, now >= 1704067200 ? (int64_t)now : 0, batt, charging, rssi,
+                                  home_desk_prayers(), home_desk_radio(), work);
         }
         home_lock();
         home_runtime.render_ms = (esp_timer_get_time() - render_start) / 1000;
@@ -914,7 +960,15 @@ void home_loop_step(void)
         int64_t start = esp_timer_get_time();
         esp_err_t e = home_panel_show(work, HOME_FRAME_BYTES);
         home_lock();
-        home_runtime.force_show = false; /* answered */
+        /* A clock sync during this refresh bumps request_id. Clearing force_show here
+         * used to drop that redraw, and the four-hour limit then kept the boot picture
+         * (prayers drawn at 00:38, so none of them were red). */
+        if (home_runtime.request_id == request_id)
+            home_runtime.force_show = false;
+        else {
+            home_runtime.dirty = true;
+            home_runtime.force_show = true;
+        }
         home_runtime.refresh_ms = (esp_timer_get_time() - start) / 1000;
         if (e == ESP_OK) {
             memcpy(home_runtime.frame, work, HOME_FRAME_BYTES);

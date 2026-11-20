@@ -185,6 +185,11 @@ static void fill_calendar(home_salah_day_t *out, const struct tm *local)
     }
     if (out->ramadan_days < 1)
         out->ramadan_days = 1;
+    {
+        int ramadan_hy = (out->in_ramadan || out->hm < 9) ? out->hy : out->hy + 1;
+        int ramadan_jd = hijri_jd(ramadan_hy, 9, 1);
+        jd_gregorian(ramadan_jd, &out->ramadan_gy, &out->ramadan_gm, &out->ramadan_gd);
+    }
     for (int year = 0; year < 2; year++) {
         for (i = 0; i < (int)(sizeof holidays / sizeof holidays[0]); i++) {
             int jd = hijri_jd(out->hy + year, holidays[i].month, holidays[i].day);

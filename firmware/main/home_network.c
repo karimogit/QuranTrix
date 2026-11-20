@@ -119,6 +119,10 @@ static void events(void *arg, esp_event_base_t base, int32_t id, void *data)
         home_runtime.dirty = true;
         home_runtime.request_id++;
         home_unlock();
+        /* The first picture is often drawn from the unsynced RTC (00:38 on this desk),
+         * which is before Fajr, so every prayer tile stays empty. Start NTP only once
+         * the station actually has an address. */
+        esp_netif_sntp_start();
         ESP_LOGI(TAG, "Station acquired an IP address");
     } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t *event = data;
@@ -366,6 +370,7 @@ static void on_sntp_sync(struct timeval *tv)
     (void)tv;
     sntp_at_s = (uint32_t)(esp_timer_get_time() / 1000000);
     sntp_synced = true;
+    ESP_LOGI(TAG, "SNTP set the clock to %lld", (long long)time(NULL));
 }
 esp_err_t home_network_start(void)
 {
@@ -431,8 +436,9 @@ esp_err_t home_network_start(void)
     started = true;
     radio_on = true;
     esp_sntp_config_t ntp = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
-    ntp.start = true;
+    ntp.start = false;
     ntp.wait_for_sync = false;
+    ntp.renew_servers_after_new_IP = true;
     ntp.sync_cb = on_sntp_sync;
     if ((e = esp_netif_sntp_init(&ntp)) != ESP_OK)
         return e;
@@ -679,18 +685,32 @@ void home_sources_task(void *unused)
             home_runtime.data.calendar.meta.next_fetch = 0;
         *c = home_runtime.config;
         *d = home_runtime.data;
-        int32_t offset;
-        bool dst;
         /* The clock counts only once SNTP has set it. A time carried over a reset by the
          * RTC can be minutes off, and data stamped with it would sit "in the future"
          * after the sync, showing "Age unknown" on every screen (seen 15.09.2026). */
-        bool valid_clock =
-            sntp_synced && now >= 1704067200 && home_tz_offset_at(c->timezone, now, &offset, &dst);
+        /* SNTP alone marks the clock usable. Prayer tiles and the bar need local time, but
+         * tying validity to the zone table left the paper on an early blank frame forever when
+         * the saved timezone string was missing or not in the table yet. */
+        bool valid_clock = sntp_synced && now >= 1704067200;
+        if (online && !sntp_synced) {
+            static int64_t sntp_kick_us;
+            int64_t mono = esp_timer_get_time();
+            if (mono - sntp_kick_us > INT64_C(15000000)) {
+                sntp_kick_us = mono;
+                esp_err_t kicked = esp_netif_sntp_start();
+                ESP_LOGW(TAG, "SNTP still waiting (%s), clock %lld", esp_err_to_name(kicked),
+                         (long long)now);
+            }
+        }
         bool clock_changed = home_runtime.time_valid != valid_clock;
         home_runtime.time_valid = valid_clock;
         if (clock_changed) {
             home_runtime.dirty = true;
             home_runtime.request_id++;
+            /* The boot picture is often drawn before SNTP. Prayer colours depend on the
+             * clock, and the four-hour paper limit would otherwise keep that first frame. */
+            if (valid_clock)
+                home_runtime.force_show = true;
         }
         home_unlock();
         if (!online || !valid_clock)

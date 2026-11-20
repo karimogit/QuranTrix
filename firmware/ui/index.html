@@ -820,6 +820,11 @@ function fmtPrayer(minute, clock24) {
 function monthShort(m) {
   return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1] || '';
 }
+function ramadanGregorian(hy, hm, inRamadan) {
+  const hy2 = inRamadan || hm < 9 ? hy : hy + 1;
+  const g = jdGregorian(hijriJd(hy2, 9, 1));
+  return g.d + ' ' + monthShort(g.m) + ' ' + g.y;
+}
 function inkOnPaper(col) {
   return (col === INK[1] || col === INK[2]) ? INK[0] : col;
 }
@@ -996,7 +1001,9 @@ function drawPaperCanvas() {
       const y = 32, h = 56;
       const current = salah.valid && salah.current === i;
       const tapped = (paperPrayerMask & (1 << i)) !== 0;
-      const past = salah.valid && salah.current > i;
+      const now_m = civil.hr * 60 + civil.mi;
+      const past = salah.valid && !tapped && !current && salah.minute[i] >= 0 &&
+        now_m > salah.minute[i];
       let nameInk = inks.body, timeInk = inks.body;
       if (tapped || past) {
         const fill = tapped ? INK[2] : INK[3];
@@ -1025,11 +1032,13 @@ function drawPaperCanvas() {
         ? (days === 1 ? 'day left' : 'days left')
         : (days === 1 ? 'day to Ramadan' : 'days to Ramadan');
       const hijri = known ? (cal.hd + ' ' + (HIJRI_MONTHS[cal.hm - 1] || '') + ' ' + cal.hy) : '';
+      const greg = known ? ramadanGregorian(cal.hy, cal.hm, cal.inRamadan) : '';
       ctx.font = '700 28px Georgia, serif';
       const nw = ctx.measureText(num).width;
       pvClip(ctx, x + 8, y + 12, nw + 8, 36, num, inks.body, '700 28px Georgia, serif');
       pvClip(ctx, x + 18 + nw, y + 14, w - 26 - nw, 16, word, inks.body, fSm);
-      if (hijri) pvClip(ctx, x + 18 + nw, y + 32, w - 26 - nw, 16, hijri, inkOnPaper(inks.accent), fSm);
+      if (hijri) pvClip(ctx, x + 18 + nw, y + 30, w - 26 - nw, 16, hijri, inkOnPaper(inks.accent), fSm);
+      if (greg) pvClip(ctx, x + 18 + nw, y + 44, w - 26 - nw, 12, greg, inks.body, fSm);
     }
     if (sunOn) {
       const x = moonOn ? 8 + half + 4 : 8, w = moonOn ? half : band;

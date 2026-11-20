@@ -20,6 +20,7 @@ typedef struct {
     int hy, hm, hd;
     bool in_ramadan;
     int ramadan_days;
+    int ramadan_gy, ramadan_gm, ramadan_gd; /* civil 1 Ramadan for the count shown */
     char holiday[48];
     int holiday_month; /* 1..12, 0 when none */
     int holiday_day;
