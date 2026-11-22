@@ -182,6 +182,9 @@ static bool i2s_queue(i2s_chan_handle_t *tx, int desc, int frames, const i2s_std
     chan.dma_desc_num = desc;
     chan.dma_frame_num = frames;
     chan.auto_clear = true;
+    /* Keep the DMA interrupt ahead of ordinary GPIO work, still inside the range
+     * that does not require the handler to live in IRAM. */
+    chan.intr_priority = 3;
     *tx = NULL;
     /* Playback only. A receive queue would take the same internal memory again. */
     if (i2s_new_channel(&chan, tx, NULL) != ESP_OK)
@@ -263,24 +266,31 @@ static bool hardware_open(audio_hw_t *hw, int rate, bool stream)
     };
     if (i2c_new_master_bus(&bus_cfg, &hw->bus) != ESP_OK)
         return false;
-    /* The queue is internal memory, and Wi-Fi needs what is left. Gaps are covered by the
-     * playback buffer in external memory, so this stays small. A queue that does not fit
-     * is thrown away before the smaller one is tried. */
     i2s_std_config_t std = {
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(rate),
         .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
-        /* ES8311 table expects MCLK = 256 × LRCK; default config already uses 256×. */
         .gpio_cfg = {.mclk = GPIO_NUM_14,
                      .bclk = GPIO_NUM_15,
                      .ws = GPIO_NUM_38,
                      .dout = GPIO_NUM_45,
                      .din = GPIO_NUM_16},
     };
+    /* The ESP32-S3 has no dedicated audio PLL. PLL_160M with MCLK = 256 × LRCK is what
+     * the ES8311 table expects; the default clock source can leave the speaker silent. */
+    std.clk_cfg.clk_src = I2S_CLK_SRC_PLL_160M;
+    std.clk_cfg.mclk_multiple = I2S_MCLK_MULTIPLE_256;
     bool opened = false;
-    static const int queue[][2] = {{4, 240}, {3, 120}};
-    for (size_t i = 0; i < sizeof queue / sizeof queue[0] && !opened; i++)
-        opened = i2s_queue(&hw->tx, queue[i][0], queue[i][1], &std);
-    (void)stream;
+    if (stream) {
+        /* Each descriptor is just under the 4092-byte DMA limit (1008 stereo frames).
+         * The MP3 ring in external RAM covers longer gaps; these descriptors cover Wi-Fi bursts. */
+        static const int stream_queue[][2] = {{8, 1008}, {6, 1008}, {4, 480}};
+        for (size_t i = 0; i < sizeof stream_queue / sizeof stream_queue[0] && !opened; i++)
+            opened = i2s_queue(&hw->tx, stream_queue[i][0], stream_queue[i][1], &std);
+    } else {
+        static const int queue[][2] = {{4, 240}, {3, 120}};
+        for (size_t i = 0; i < sizeof queue / sizeof queue[0] && !opened; i++)
+            opened = i2s_queue(&hw->tx, queue[i][0], queue[i][1], &std);
+    }
     if (!opened) {
         hardware_close(hw);
         return false;
