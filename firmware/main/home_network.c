@@ -1,6 +1,7 @@
 #include "home_runtime.h"
 #include "home_radio.h"
 #include "home_fetch.h"
+#include "home_ota.h"
 #include "home_article.h"
 #include "home_places.h"
 #include "home_config.h"
@@ -834,5 +835,6 @@ void home_sources_task(void *unused)
         home_lock();
         home_runtime.source_active = false;
         home_unlock();
+        home_ota_auto_tick();
     }
 }

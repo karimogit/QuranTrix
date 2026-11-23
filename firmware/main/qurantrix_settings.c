@@ -57,6 +57,7 @@ static void defaults(qurantrix_settings_t *s)
                        QURAN_BLK_ASMA | QURAN_BLK_RADIO | QURAN_BLK_HAIKU;
     s->upper_titles = true;
     s->panel_model = 0;
+    s->auto_update = 0;
 }
 
 static uint8_t pigment_clamp(uint8_t v) { return v <= 3 ? v : 0; }
@@ -394,7 +395,10 @@ void qurantrix_settings_init(void)
         cached.panel_model = 0;
     if (cached.panel_model > 2)
         cached.panel_model = 0;
+    if (loaded < offsetof(qurantrix_settings_t, auto_update) + 1)
+        cached.auto_update = 0;
     cached.adhan = cached.adhan == 1 ? 1 : 0;
+    cached.auto_update = cached.auto_update == 1 ? 1 : 0;
     if (strcmp(cached.nfc_label, "COFFEE  ·  TAP") == 0 || strcmp(cached.nfc_label, "COFFEE") == 0)
         snprintf(cached.nfc_label, sizeof cached.nfc_label, "SALAH");
     for (int i = 0; i < cached.radio_count && i < QURANTRIX_RADIO_MAX; i++) {
@@ -470,6 +474,7 @@ esp_err_t qurantrix_settings_save(const qurantrix_settings_t *in)
     copy.theme_preset = copy.theme_preset > 7 ? 0 : copy.theme_preset;
     copy.brush = copy.brush > 2 ? 0 : copy.brush;
     copy.adhan = copy.adhan ? 1 : 0;
+    copy.auto_update = copy.auto_update ? 1 : 0;
     nvs_handle_t h;
     esp_err_t e = nvs_open_from_partition("home_nvs", "qurantrix", NVS_READWRITE, &h);
     if (e != ESP_OK)
@@ -569,6 +574,7 @@ cJSON *qurantrix_settings_json(void)
     cJSON_AddItemToObject(j, "foot_order", u8_array(s.foot_order, QURANTRIX_FOOT_SLOTS));
     cJSON_AddNumberToObject(j, "panel_model", s.panel_model);
     cJSON_AddBoolToObject(j, "adhan", s.adhan != 0);
+    cJSON_AddBoolToObject(j, "auto_update", s.auto_update != 0);
     cJSON_AddNumberToObject(j, "metric_visible", s.metric_visible);
     cJSON_AddNumberToObject(j, "block_visible", s.block_visible);
     cJSON_AddItemToObject(j, "toolbar_order", u8_array(s.bar_order, QURANTRIX_BAR_SLOTS));
@@ -680,6 +686,8 @@ bool qurantrix_settings_decode(const char *json, size_t len, qurantrix_settings_
         s.panel_model = 0;
     if ((v = cJSON_GetObjectItem(j, "adhan")))
         s.adhan = cJSON_IsTrue(v) ? 1 : 0;
+    if ((v = cJSON_GetObjectItem(j, "auto_update")))
+        s.auto_update = cJSON_IsTrue(v) ? 1 : 0;
     cJSON *pl = cJSON_GetObjectItem(j, "playlist");
     if (cJSON_IsString(pl) && pl->valuestring)
         qurantrix_settings_import_playlist(pl->valuestring, &s);

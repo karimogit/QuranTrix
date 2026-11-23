@@ -6,6 +6,9 @@
 #define QURANTRIX_HOSTNAME "qurantrix"
 #define QURANTRIX_HTTP_UA "QuranTrix/1.0"
 #define QURANTRIX_VERSION "1.0.0"
+#define QURANTRIX_OTA_ASSET "QuranTrix.bin"
+#define QURANTRIX_OTA_RELEASES_URL \
+    "https://api.github.com/repos/karimogit/QuranTrix/releases/latest"
 /* Public Muslim holidays calendar. %23 and %40 keep the address free of '#' and '@'. */
 #define QURANTRIX_HOLIDAY_ICS                                                                       \
     "https://calendar.google.com/calendar/ical/en.islamic%23holiday%40group.v.calendar.google.com/" \
