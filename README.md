@@ -83,6 +83,10 @@ idf.py build
 
 The application image is `firmware/build/QuranTrix.bin`. Flash that file at `0x20000` only. Leave the bootloader and the partition table on the device as they are.
 
+### Updates over Wi‑Fi
+
+On home Wi‑Fi, open **Settings → Firmware**. **Check for updates** asks GitHub for the latest [release](https://github.com/karimogit/QuranTrix/releases) and installs `QuranTrix.bin` when a newer version is available. **Auto-update** checks once a day and installs without opening the page. Publish each release with a `QuranTrix.bin` asset (version tag, e.g. `v1.0.1`). USB flash at `0x20000` still works as a fallback.
+
 ## License
 
 Version 1.0. MIT. See [LICENSE](LICENSE). Font notices for the type shipped in the firmware are in `licenses/`.

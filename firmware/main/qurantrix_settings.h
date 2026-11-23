@@ -96,6 +96,7 @@ typedef struct {
     uint8_t foot_order[QURANTRIX_FOOT_SLOTS]; /* brew, radio, haiku */
     uint8_t adhan; /* 1: play the call at each prayer. Off until the phone turns it on. */
     uint8_t panel_model; /* HOME_PANEL_* : auto, NOTE4C, or NOTE4 monochrome */
+    uint8_t auto_update; /* 1: check GitHub releases for firmware once a day on home Wi-Fi. */
 } qurantrix_settings_t;
 
 typedef struct {

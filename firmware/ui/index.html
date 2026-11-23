@@ -408,6 +408,15 @@
   </section>
 
   <section>
+    <div class="head"><h2 data-i18n="firmwareTitle">Firmware</h2></div>
+    <p class="hint" data-i18n="firmwareHint">Updates download from GitHub releases over home Wi‑Fi. USB is still the fallback.</p>
+    <label class="block"><span data-i18n="autoUpdate">Auto-update</span><span class="switch"><input type="checkbox" id="autoUpdate"><i></i></span></label>
+    <p class="hint" id="updateStatus" data-i18n="updateIdle">Save settings to turn auto-update on or off.</p>
+    <button type="button" class="ghost" id="updateCheckBtn" data-i18n="updateCheck">Check for updates</button>
+    <button type="button" class="action" id="updateApplyBtn" hidden data-i18n="updateInstall">Install update</button>
+  </section>
+
+  <section>
     <div class="head"><h2 data-i18n="radioTitle">Radio</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-radio" aria-label="Help">?</button></div>
     <p class="helptext" id="help-radio" hidden data-i18n="helpRadio">The stations the round button plays. One tap turns the radio on or off. A short press of Up or Down changes the volume. Hold one for about two seconds to change station. If the first stream does not open, the next one plays.</p>
     <p class="hint" data-i18n="radioHint">Default station: Qurango Tarateel.</p>
@@ -1527,6 +1536,8 @@ async function load() {
     document.getElementById('salahMethod').value = String(d.salah_method ?? d.wind_unit ?? 0);
     document.getElementById('asrMadhab').value = String(d.asr_madhab ?? d.forecast_style) === '1' ? '1' : '0';
     document.getElementById('adhan').checked = !!d.adhan;
+    document.getElementById('autoUpdate').checked = !!d.auto_update;
+    refreshUpdateStatus();
     document.getElementById('themePreset').value = d.theme_preset ?? 0;
     document.getElementById('panelModel').value = String(d.panel_model ?? 0);
     ['Bar','Accent','Alert','Hi','Lo'].forEach(k => {
@@ -1767,6 +1778,7 @@ document.getElementById('deskBtn').onclick = async () => {
       salah_method: +document.getElementById('salahMethod').value,
       asr_madhab: +document.getElementById('asrMadhab').value,
       adhan: document.getElementById('adhan').checked,
+      auto_update: document.getElementById('autoUpdate').checked,
       borders: (document.getElementById('bFrameRamadan').checked ? 1 : 0) |
         (document.getElementById('bFrameSun').checked ? 2 : 0) |
         (document.getElementById('bFrameAsma').checked ? 4 : 0) |
@@ -1854,9 +1866,59 @@ const I18N = {
     pickPlace: 'Pick a place.', pickTimezone: 'Choose a time zone first.', badLatitude: 'Latitude must be between −90 and 90.',
     badLongitude: 'Longitude must be between −180 and 180.', placeSaved: '%s saved.',
     zoneKept: 'Saved. Choose the time zone under Top bar.',
-    savedPaper: 'Saved. The paper will refresh.', saving: 'Saving…'
+    savedPaper: 'Saved. The paper will refresh.', saving: 'Saving…',
+    firmwareTitle: 'Firmware', firmwareHint: 'Updates download from GitHub releases over home Wi‑Fi. USB is still the fallback.',
+    autoUpdate: 'Auto-update', updateIdle: 'Save settings to turn auto-update on or off.',
+    updateCheck: 'Check for updates', updateInstall: 'Install update',
+    updateUpToDate: 'You are on the latest release (%s).', updateAvailable: 'Version %s is available.',
+    updateChecking: 'Checking GitHub…', updateInstalling: 'Installing… The desk will restart.',
+    updateFailed: 'Update check failed.'
   },
 
+};
+
+function formatUpdateStatus(st) {
+  const applyBtn = document.getElementById('updateApplyBtn');
+  const statusEl = document.getElementById('updateStatus');
+  if (!st || !statusEl) return;
+  applyBtn.hidden = !st.available || st.state === 'updating';
+  if (st.state === 'updating')
+    statusEl.textContent = t('updateInstalling');
+  else if (st.available && st.latest)
+    statusEl.textContent = t('updateAvailable').replace('%s', st.latest);
+  else if (st.running)
+    statusEl.textContent = t('updateUpToDate').replace('%s', st.running);
+  else
+    statusEl.textContent = t('updateIdle');
+}
+async function refreshUpdateStatus() {
+  try {
+    const st = await api('/api/update', { headers: hdr() });
+    formatUpdateStatus(st);
+  } catch (e) { /* paired settings may load before network */ }
+}
+document.getElementById('updateCheckBtn').onclick = async () => {
+  const btn = document.getElementById('updateCheckBtn');
+  btn.disabled = true;
+  document.getElementById('updateStatus').textContent = t('updateChecking');
+  try {
+    const st = await api('/api/update', { method: 'POST', headers: hdr(), body: JSON.stringify({ check: true }) });
+    formatUpdateStatus(st);
+  } catch (e) {
+    document.getElementById('updateStatus').textContent = e.message || t('updateFailed');
+  } finally { btn.disabled = false; }
+};
+document.getElementById('updateApplyBtn').onclick = async () => {
+  const btn = document.getElementById('updateApplyBtn');
+  btn.disabled = true;
+  document.getElementById('updateStatus').textContent = t('updateInstalling');
+  try {
+    await api('/api/update', { method: 'POST', headers: hdr(), body: JSON.stringify({ apply: true }) });
+    document.getElementById('updateApplyBtn').hidden = true;
+  } catch (e) {
+    document.getElementById('updateStatus').textContent = e.message;
+    btn.disabled = false;
+  }
 };
 
 let lang = 'en';

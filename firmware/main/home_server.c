@@ -10,6 +10,7 @@
 #include "home_wake.h"
 #include "qurantrix_product.h"
 #include "qurantrix_settings.h"
+#include "home_ota.h"
 #include "home_desk.h"
 #include "esp_http_server.h"
 #include "esp_timer.h"
@@ -589,6 +590,8 @@ static esp_err_t api_inner(httpd_req_t *r)
             return preview(r, NULL, true, true);
         if (!strcmp(path, "/api/preview"))
             return preview(r, NULL, false, false);
+        if (!strcmp(path, "/api/update"))
+            return json_send(r, home_ota_status_json());
         return error(r, "404 Not Found", "Unknown endpoint");
     }
     if (r->method != HTTP_POST && !(r->method == HTTP_PUT &&
@@ -599,6 +602,36 @@ static esp_err_t api_inner(httpd_req_t *r)
         return error(r, "400 Bad Request", "Expected bounded JSON body");
     esp_err_t result = ESP_OK;
     cJSON *j = NULL;
+    if (r->method == HTTP_POST && !strcmp(path, "/api/update")) {
+        j = small_json(b);
+        bool want_apply = j && cJSON_IsTrue(cJSON_GetObjectItem(j, "apply"));
+        bool want_check = want_apply || (j && cJSON_IsTrue(cJSON_GetObjectItem(j, "check")));
+        if (!want_check) {
+            result = error(r, "400 Bad Request", "Expected check or apply");
+            goto done;
+        }
+        bool avail = false;
+        esp_err_t ce = home_ota_check(&avail, NULL, 0, NULL, 0);
+        if (ce != ESP_OK && ce != ESP_ERR_NOT_FOUND) {
+            result = error(r, "503 Service Unavailable", "Update check failed");
+            goto done;
+        }
+        if (want_apply) {
+            if (!avail) {
+                result = error(r, "409 Conflict", "No newer firmware");
+                goto done;
+            }
+            esp_err_t se = home_ota_start(false);
+            if (se != ESP_OK) {
+                result = error(r, "503 Service Unavailable", "Update already running");
+                goto done;
+            }
+            result = accepted(r);
+            goto done;
+        }
+        result = json_send(r, home_ota_status_json());
+        goto done;
+    }
     if (r->method == HTTP_POST && !strcmp(path, "/api/preview")) {
         result = preview(r, b, false, false);
         goto done;
