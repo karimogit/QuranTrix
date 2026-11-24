@@ -676,6 +676,8 @@ static esp_err_t api_inner(httpd_req_t *r)
             home_runtime.dirty = true;
             home_runtime.force_show = true;
             home_runtime.request_id++;
+            home_runtime.setup = false;
+            home_runtime.pair_until = 0;
             home_unlock();
             result = accepted(r);
         }
@@ -825,11 +827,6 @@ static esp_err_t api_inner(httpd_req_t *r)
             goto done;
         }
         home_runtime.secrets = s;
-        if (home_runtime.online && !on_ap) {
-            home_runtime.setup = false;
-            home_runtime.dirty = true;
-            home_runtime.request_id++;
-        }
         home_unlock();
         result = json_text(r, encoded);
         memset(encoded, 0, strlen(encoded));
@@ -861,7 +858,6 @@ static esp_err_t api_inner(httpd_req_t *r)
         home_runtime.pending_screen = s;
         home_runtime.dirty = true;
         home_runtime.request_id++;
-        home_runtime.setup = false;
         home_runtime.manual_until =
             esp_timer_get_time() + (int64_t)home_runtime.config.pause_min * 60000000;
         home_unlock();

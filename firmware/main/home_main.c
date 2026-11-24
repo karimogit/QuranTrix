@@ -113,7 +113,7 @@ void home_begin_pairing(void)
     home_runtime.dirty = true;
     home_runtime.request_id++;
     home_unlock();
-    ESP_LOGI(TAG, "Physical pairing window opened for five minutes");
+    ESP_LOGI(TAG, "Pairing code opened for five minutes");
 }
 static void output(gpio_num_t pin, int value)
 {
@@ -162,7 +162,7 @@ static int round_tap_count;
 static int64_t round_tap_at;
 static void action(int key);
 
-/* Two quick taps on the round button: redraw only, no radio toggle and no download. */
+/* Group quick taps to distinguish pairing and firmware update gestures from a radio toggle. */
 static void desk_screen_only(void)
 {
     home_lock();
@@ -183,10 +183,16 @@ static void round_tap_commit(int count)
         action(4);
     else if (count == 2)
         home_begin_pairing();
-    else
+    else if (count == 3) {
+        esp_err_t e = home_ota_update_now();
+        if (e != ESP_OK)
+            ESP_LOGW(TAG, "Round button update request was not started: %s", esp_err_to_name(e));
+        else
+            ESP_LOGI(TAG, "Round button triple-tap: checking for firmware update");
+    } else
         desk_screen_only();
 }
-/* Held presses. OK/BOOT after two seconds opens the setup window (it always has). Up after two
+/* Held presses. OK/BOOT after two seconds opens or closes setup. Up after two
  * seconds holds the picture, Down after five switches the display language, so the two jobs people
  * reach for most no longer need the panel. A press held for two to five seconds and
  * then let go asks the sources for fresh data; see the release path in the loop. */
@@ -195,12 +201,10 @@ static void long_action(int key)
     if (key == 4) {
         pending_single_key = 0;
         round_tap_count = 0;
-        /* The same hold opens the window and closes it. Short presses deliberately leave the
-         * card alone while the window is open, because the code and the password are readable
-         * nowhere else - but without this the only way out was to wait five minutes (16.09). */
+        /* Short presses leave the setup card alone; only a hold or Save changes closes it. */
         int64_t at = esp_timer_get_time();
         home_lock();
-        bool open = home_runtime.setup && home_runtime.pair_until > at;
+        bool open = home_runtime.setup;
         if (open) {
             /* Closing the window has to force a picture. A plain dirty flag is dropped
              * while the radio is on, and the paper would keep showing setup. */
@@ -212,11 +216,11 @@ static void long_action(int key)
         }
         home_unlock();
         if (open) {
-            ESP_LOGI(TAG, "Physical hold key=4: setup window closed");
+            ESP_LOGI(TAG, "Physical hold key=4: setup closed");
             return;
         }
         home_begin_pairing();
-        ESP_LOGI(TAG, "Physical hold key=4: setup window");
+        ESP_LOGI(TAG, "Physical hold key=4: setup opened");
         return;
     }
     home_lock();
@@ -291,7 +295,7 @@ static void action(int key)
         return;
     }
     /* The round button starts the radio and keeps it up so the stream can connect.
-     * Hold it to open the setup window, which is where the place is saved. */
+     * Hold it to open setup, which is where the place is saved. */
     home_runtime.awake_until = now + HOME_AWAKE_US;
     home_unlock();
     home_desk_radio_toggle();
@@ -301,10 +305,7 @@ static void action(int key)
     home_runtime.force_show = true;
     home_runtime.pending_manual = true;
     home_runtime.manual_id++;
-    /* While the setup window is open the card is the only place the code and the password are
-     * readable, so a press must not take them away (QC first start, 16.09). */
-    if (esp_timer_get_time() >= home_runtime.pair_until)
-        home_runtime.setup = false;
+    /* A short press never leaves setup; saving or holding the round button does. */
     home_runtime.dirty = true;
     home_runtime.request_id++;
     if (pause)
@@ -669,18 +670,16 @@ void home_loop_step(void)
     int phase = home_runtime.phase;
     int64_t manual = home_runtime.manual_until, last_switch = home_runtime.last_switch;
     bool clock_synced = home_runtime.time_valid; /* SNTP has set the clock (sources task) */
-    /* The setup card lives exactly as long as the window it describes: once the access point
-     * and the code are gone, the card would be an instruction to nowhere. */
-    if (home_runtime.setup && mono >= home_runtime.pair_until) {
-        home_runtime.setup = false;
+    /* Setup stays visible after the pairing code expires; a hold closes or reopens it. */
+    if (home_runtime.setup && home_runtime.pair_until > 0 && mono >= home_runtime.pair_until) {
+        home_runtime.pair_until = 0;
         home_runtime.dirty = true;
         home_runtime.force_show = true;
         home_runtime.request_id++;
-        setup = false;
         dirty = true;
         force = true;
-        leaving_setup = loop_drew_setup;
         request_id = home_runtime.request_id;
+        ESP_LOGI(TAG, "Pairing code expired; setup remains open");
     }
     /* The "device" card holds the display for its window, then the screen comes back. */
     bool info_open = home_runtime.info_until > mono;
@@ -878,7 +877,7 @@ void home_loop_step(void)
     if (phase != 3 && dirty && !hold_paper && !(info_open && loop_drew_info) &&
         (!quiet || setup || leaving_setup || manual_request || force || mono < manual ||
          !home_runtime.frame_valid)) {
-        char ssid[33], pass[17], code[7], address[48];
+        char ssid[33], pass[17], code[8], address[48];
         home_lock();
         if (home_runtime.request_id != request_id ||
             home_runtime.config.revision != c->revision || home_runtime.maintenance) {
@@ -891,7 +890,8 @@ void home_loop_step(void)
         home_runtime.pending_screen = screen;
         snprintf(ssid, sizeof(ssid), "%s", home_runtime.ssid);
         snprintf(pass, sizeof(pass), "%s", home_runtime.secrets.ap_password);
-        snprintf(code, sizeof(code), "%s", home_runtime.pair_code);
+        snprintf(code, sizeof(code), "%s",
+                 home_runtime.pair_until > mono ? home_runtime.pair_code : "EXPIRED");
         /* Setup first joins our AP, regardless of the station connection. */
         snprintf(address, sizeof(address), "http://192.168.4.1");
         home_unlock();

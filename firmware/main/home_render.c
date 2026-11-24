@@ -3017,7 +3017,8 @@ void home_render_dashboard(const home_config_t *cfg, const home_data_t *data, in
             fmt_prayer_time(when, sizeof when, salah.valid ? salah.minute[i] : -1, cfg->clock24);
             snprintf(name, sizeof name, "%s", home_salah_name(i));
             qurantrix_upper_box_title(name, js.upper_titles);
-            bool tapped = (mask & (1 << i)) != 0;
+            bool tapped = (mask & (1 << i)) != 0 && salah.minute[i] >= 0 &&
+                          salah.minute[i] <= now_m;
             bool current = salah.current == i;
             /* Missed means the time is already behind us. Do not also require salah.valid:
              * one failed angle used to blank every tile, including the ones with a real time. */

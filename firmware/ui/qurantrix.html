@@ -266,7 +266,7 @@
   </section>
 
   <section>
-    <div class="head"><h2 data-i18n="placeTitle">Place</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-place" aria-label="Help">?</button></div>
+    <div class="head"><h2 data-i18n="placeTitle">Place &amp; time zone</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-place" aria-label="Help">?</button></div>
     <p class="helptext" id="help-place" hidden data-i18n="helpPlace">Prayer times use this place and its time zone. The method sets Fajr and Isha. Asr follows the Shafi or Hanafi school. The holiday line follows the calendar below, and the built-in dates until that calendar arrives.</p>
     <p class="hint" data-i18n="placeHint">Search for the place on the paper. Prayer times follow it.</p>
     <label class="field"><span data-i18n="place">Place</span><input id="place" type="search" placeholder="Amsterdam, Lisbon, Kyoto…"></label>
@@ -275,12 +275,15 @@
     <p class="hint" data-i18n="offlinePlacesHint">No internet? Pick a city below, then tap Use this place. Time zone and coordinates are filled in.</p>
     <div id="places" class="places" role="listbox" aria-label="Places"></div>
     <button type="button" class="action" id="locBtn" data-i18n="usePlace">Use this place</button>
-    <p class="hint" data-i18n="manualPlaceHint">Or enter latitude and longitude manually (time zone under Top bar).</p>
+    <p class="hint" data-i18n="manualPlaceHint">Or enter latitude and longitude manually, then choose the time zone below.</p>
     <div class="manual-place">
       <label class="field"><span data-i18n="latitude">Latitude</span><input id="manualLat" type="text" inputmode="decimal" placeholder="52.3676" autocomplete="off"></label>
       <label class="field"><span data-i18n="longitude">Longitude</span><input id="manualLon" type="text" inputmode="decimal" placeholder="4.9041" autocomplete="off"></label>
       <button type="button" class="ghost" id="manualPlaceBtn" data-i18n="saveCoords">Save coordinates</button>
     </div>
+    <label class="field"><span data-i18n="timezone">Time zone</span>
+      <select id="timezone" class="plain"></select>
+    </label>
     <label class="field"><span data-i18n="salahMethod">Prayer method</span>
       <select id="salahMethod" class="plain">
         <option value="0">Muslim World League</option>
@@ -318,11 +321,8 @@
     <input id="footOrder" type="hidden" value="0,1,2">
     <input id="metricOrder" type="hidden" value="0,1,2,3,4">
     <div class="head later"><h2 data-i18n="topTitle">Top bar</h2><button type="button" class="help" data-i18n-aria="helpLabel" aria-expanded="false" aria-controls="help-top" aria-label="Help">?</button></div>
-    <p class="helptext" id="help-top" hidden data-i18n="helpTop">Weekday, date, time, place, Wi-Fi, and battery. Up moves an item toward the left. The clock follows the time zone. Choosing a place fills the zone in.</p>
-    <p class="hint" data-i18n="topHint">Weekday, date, and time follow the time zone. Choosing a place fills the zone in. Up moves a row toward the left of the screen.</p>
-    <label class="field"><span data-i18n="timezone">Time zone</span>
-      <select id="timezone" class="plain"></select>
-    </label>
+    <p class="helptext" id="help-top" hidden data-i18n="helpTop">Weekday, date, time, place, Wi-Fi, and battery. Up moves an item toward the left.</p>
+    <p class="hint" data-i18n="topHint">Up moves a row toward the left of the screen.</p>
     <label class="field"><span data-i18n="time">Time</span>
       <select id="clock24" hidden><option value="1">24 h</option><option value="0">12 h</option></select>
       <div class="seg" data-for="clock24"><button type="button" data-v="1">24 h</button><button type="button" data-v="0">12 h</button></div>
@@ -1008,9 +1008,10 @@ function drawPaperCanvas() {
     for (let i = 0; i < 5; i++) {
       const tile = tw + (i < extra ? 1 : 0);
       const y = 32, h = 56;
-      const current = salah.valid && salah.current === i;
-      const tapped = (paperPrayerMask & (1 << i)) !== 0;
       const now_m = civil.hr * 60 + civil.mi;
+      const current = salah.valid && salah.current === i;
+      const tapped = (paperPrayerMask & (1 << i)) !== 0 &&
+        salah.minute[i] >= 0 && salah.minute[i] <= now_m;
       const past = salah.valid && !tapped && !current && salah.minute[i] >= 0 &&
         now_m > salah.minute[i];
       let nameInk = inks.body, timeInk = inks.body;
@@ -1830,24 +1831,24 @@ const I18N = {
     settingsTitle: 'Settings',
     onWord: 'ON',
     helpLabel: 'Help',
-    helpPair: 'Hold the round button about two seconds. The paper shows six digits for about five minutes. Join QuranTrix-Setup and type the code here. Pairing on that network clears older phones and keeps this one. Up to four phones can be paired from your home network later.',
+    helpPair: 'Hold the round button about two seconds. The paper stays in Setup until you save changes or hold the button again. Its pairing code is valid for five minutes. Join QuranTrix-Setup and type the code here.',
     helpWifi: 'The home network. After you save, the password stays on the device. This page does not keep it.',
     helpPlace: 'Prayer times use this place and its time zone. Search asks the desk first when it is on your home Wi‑Fi with internet, otherwise your phone. With no internet, pick a city from the built-in list or enter coordinates manually.',
     helpPaper: 'The five prayers, the Ramadan count, sun times, the next holiday, dua of the day, one of the 99 Names, and the radio. Turn a block off. A phone on the tag plays a chime and fills that prayer yellow. A prayer that has passed without a tap is red. The current prayer and the ones still ahead have no background until a tap. The current one always has a border: red while it is empty, black once it is yellow.',
-    helpTop: 'Weekday, date, time, place, Wi-Fi, and battery. Up moves an item toward the left. The clock follows the time zone. Choosing a place fills the zone in.',
+    helpTop: 'Weekday, date, time, place, Wi-Fi, and battery. Up moves an item toward the left.',
     helpLook: 'Themes, texture, uppercase titles, and dark paper. Dark paper swaps black and paper. The sketch above matches the paper.',
     helpBorders: 'A frame around the prayers, the Ramadan count, sun times, the holiday, the dua, or the radio.',
     helpRadio: 'The stations the round button plays. One tap turns the radio on or off. A short press of Up or Down changes the volume. Hold one for about two seconds to change station. If the first stream does not open, the next one plays.',
     pairTitle: 'Pair this phone', pairHint: 'Type the six digits on the display.', pairCode: 'Pairing code', pairBtn: 'Pair',
     wifiTitle: 'Wi‑Fi', wifiHint: 'The home network. The password stays on the device.', network: 'Network name', password: 'Password', saveWifi: 'Save Wi‑Fi',
-    placeTitle: 'Place', placeHint: 'Search when you have internet, or pick a built-in city.', place: 'Place', searchPlaces: 'Search places', usePlace: 'Use this place',
+    placeTitle: 'Place & time zone', placeHint: 'Search when you have internet, or pick a built-in city.', place: 'Place', searchPlaces: 'Search places', usePlace: 'Use this place',
     offlinePlacesHint: 'No internet? Pick a city below, then tap Use this place. Time zone and coordinates are filled in.',
     offlinePlacesBtn: 'Show offline cities', offlinePlacesShown: 'Offline cities shown.',
-    manualPlaceHint: 'Or enter latitude and longitude manually (time zone under Top bar).',
+    manualPlaceHint: 'Or enter latitude and longitude manually, then choose the time zone below.',
     latitude: 'Latitude', longitude: 'Longitude', saveCoords: 'Save coordinates',
     panelModel: 'E-paper model', panelHint: 'Auto cannot tell the hardware apart. Choose NOTE4 on the monochrome NOTE4.',
     paperTitle: 'On the paper', paperHint: 'Turn a block off. The top bar stays.',
-    topTitle: 'Top bar', topHint: 'Weekday, date, and time follow the time zone. Choosing a place fills the zone in. Up moves a row toward the left of the screen.',
+    topTitle: 'Top bar', topHint: 'Up moves a row toward the left of the screen.',
     timezone: 'Time zone', time: 'Time', date: 'Date', weekday: 'Weekday',
     tbWeekday: 'Weekday', tbDate: 'Date', tbTime: 'Time', tbPlace: 'Place', tbWifi: 'Wi‑Fi', tbBattery: 'Battery',
     lookTitle: 'Look', lookHint: 'The paper prints four pigments: black, paper, yellow, and red.', yourPlace: 'Your place', clearSkies: 'Clear skies',
@@ -1865,7 +1866,7 @@ const I18N = {
     searchNeeds: 'Search needs internet on the desk or on your phone.',
     pickPlace: 'Pick a place.', pickTimezone: 'Choose a time zone first.', badLatitude: 'Latitude must be between −90 and 90.',
     badLongitude: 'Longitude must be between −180 and 180.', placeSaved: '%s saved.',
-    zoneKept: 'Saved. Choose the time zone under Top bar.',
+    zoneKept: 'Saved. The selected place time zone was retained.',
     savedPaper: 'Saved. The paper will refresh.', saving: 'Saving…',
     firmwareTitle: 'Firmware', firmwareHint: 'Updates download from GitHub releases over home Wi‑Fi. USB is still the fallback.',
     autoUpdate: 'Auto-update', updateIdle: 'Save settings to turn auto-update on or off.',
