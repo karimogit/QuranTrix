@@ -3489,12 +3489,12 @@ static void pairing_bar(canvas_t *c, int lang)
     text(c, 14, 4, 220, 22, 2, PAPER, QURANTRIX_PRODUCT_NAME, 16);
     const char *word = tr(lang, "Setup", "Konfiguracja");
     int ww = width(0, word, 24);
-    int vw = width(0, "v1.0", 8);
+    int vw = width(0, QURANTRIX_VERSION_DISPLAY, 8);
     int vx = W - 14 - vw;
     int x = 14 + width(2, QURANTRIX_PRODUCT_NAME, 16) + 8;
     if (ww > 0 && x + ww + 6 < vx)
         text(c, x, 8, ww + 2, 16, 0, PAPER, word, 24);
-    text(c, vx, 8, vw + 2, 16, 0, PAPER, "v1.0", 8);
+    text(c, vx, 8, vw + 2, 16, 0, PAPER, QURANTRIX_VERSION_DISPLAY, 8);
 }
 void home_render_setup(const char *ssid, const char *password, const char *code,
                        const char *address, int lang, uint8_t frame[HOME_FRAME_BYTES])

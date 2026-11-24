@@ -4,8 +4,9 @@
 #define QURANTRIX_AP_SSID "QuranTrix-Setup"
 #define QURANTRIX_SETUP_HINT "http://192.168.4.1"
 #define QURANTRIX_HOSTNAME "qurantrix"
-#define QURANTRIX_HTTP_UA "QuranTrix/1.0"
-#define QURANTRIX_VERSION "1.0.0"
+#define QURANTRIX_HTTP_UA "QuranTrix/1.0.1"
+#define QURANTRIX_VERSION "1.0.1"
+#define QURANTRIX_VERSION_DISPLAY "v1.0.1"
 #define QURANTRIX_OTA_ASSET "QuranTrix.bin"
 #define QURANTRIX_OTA_RELEASES_URL \
     "https://api.github.com/repos/karimogit/QuranTrix/releases/latest"
