@@ -16,7 +16,7 @@ A dashboard for Quran radio, prayer times, Islamic holidays, Ramadan schedules, 
 
 ## Setup
 
-Hold the round button for about two seconds. The display opens a setup window for about five minutes and shows a pairing code. Hold again while it is open to close it early.
+Hold the round button for about two seconds. The display stays in setup mode until you press **Save changes** or hold the button again. The pairing code shown on the display is valid for five minutes; after it expires, hold the button to close setup and hold again to open it with a fresh code.
 
 1. Join the Wi-Fi network **QuranTrix-Setup**.
 2. Open `http://192.168.4.1`.
@@ -24,7 +24,7 @@ Hold the round button for about two seconds. The display opens a setup window fo
 
 The page stays on that code until the phone is paired. Then it opens the rest of the settings. A phone that already paired skips the code. From there you can save the home Wi-Fi network, search for a place, and change the dashboard.
 
-**Place search** uses Open-Meteo. The desk searches for you when it is on home Wi‑Fi with internet (`GET /api/geocode`). If the desk is still on setup Wi‑Fi only, search uses your phone’s internet instead. **Offline:** pick a city from the built-in list (time zone and coordinates are filled in), or choose **Time zone** and tap **Save coordinates** with latitude and longitude.
+**Place search** uses Open-Meteo. The desk searches for you when it is on home Wi‑Fi with internet (`GET /api/geocode`). If the desk is still on setup Wi‑Fi only, search uses your phone’s internet instead. A selected city fills in its time zone and coordinates; the time-zone selector is in the same **Place & time zone** section. **Offline:** pick a city from the built-in list, or enter latitude and longitude and choose a time zone before saving.
 
 Pairing tokens live in the device’s `home_nvs` storage, so they survive an application flash. The desk remembers up to four phones. Pairing on **QuranTrix-Setup** (`192.168.4.1`) clears older tokens and keeps only this phone. Pairing later on your home network adds another phone, up to the limit of four.
 
@@ -47,13 +47,13 @@ The firmware **cannot detect** which panel is installed. **Auto** assumes **NOTE
 | --- | --- |
 | Round button, 1 tap | Radio on / off |
 | Round button, hold ~2 s | Open setup (hold again to close) |
-| Round button, 3 quick taps | Refresh the screen only |
+| Round button, 3 quick taps | Check for and install a firmware update |
 | Side Up / Down, short | Volume |
 | Side Up / Down, hold (~2 s) | Next / previous station |
 | Side Up + Down together, hold (~3.5 s) | Restart the device |
 | NFC tap | Check off the current prayer |
 
-An NFC tap checks off the prayer that is current. A chime plays, the paper refreshes, and that prayer’s tile fills yellow. A prayer that has passed without a tap is red. The marks clear at local midnight. The paper redraws on its own at most every four hours, and not between 00:00 and 06:00 local time. Each prayer time still refreshes the paper, including Fajr. A prayer tap, the radio, setup, and a triple-tap still refresh. The adhan at those times stays off until it is turned on in settings. It does not play while the radio is already on.
+An NFC tap checks off the prayer that is current. A chime plays, the paper refreshes, and that prayer’s tile fills yellow. A prayer that has passed without a tap is red. Future prayers stay unfilled. The marks clear at local midnight. The paper redraws on its own at most every four hours, and not between 00:00 and 06:00 local time. Each prayer time still refreshes the paper, including Fajr. A prayer tap, the radio, and setup trigger refreshes; a triple-tap checks GitHub and installs newer firmware. The adhan at those times stays off until it is turned on in settings. It does not play while the radio is already on.
 
 ## Features
 

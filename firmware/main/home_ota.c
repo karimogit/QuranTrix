@@ -25,12 +25,13 @@ static const char *TAG = "home_ota";
 
 typedef enum { OTA_IDLE = 0, OTA_CHECKING, OTA_UPDATING, OTA_FAILED } ota_phase_t;
 
-static ota_phase_t phase = OTA_IDLE;
+static volatile ota_phase_t phase = OTA_IDLE;
 static char cached_latest[32];
 static char cached_url[512];
 static bool cached_available;
 static int64_t last_check_epoch;
 static char last_error[96];
+static volatile bool ota_trigger_active;
 
 static void trim_version(char *s)
 {
@@ -179,11 +180,9 @@ static bool pick_asset(cJSON *release, char *url, size_t url_len, char *ver, siz
     return false;
 }
 
-esp_err_t home_ota_check(bool *update_available, char *latest, size_t latest_len, char *url,
-                         size_t url_len)
+static esp_err_t ota_check_release(bool *update_available, char *latest, size_t latest_len,
+                                   char *url, size_t url_len)
 {
-    if (phase == OTA_UPDATING)
-        return ESP_ERR_INVALID_STATE;
     phase = OTA_CHECKING;
     char *body = NULL;
     size_t body_len = 0;
@@ -234,6 +233,14 @@ esp_err_t home_ota_check(bool *update_available, char *latest, size_t latest_len
     return ESP_OK;
 }
 
+esp_err_t home_ota_check(bool *update_available, char *latest, size_t latest_len, char *url,
+                         size_t url_len)
+{
+    if (phase == OTA_CHECKING || phase == OTA_UPDATING || ota_trigger_active)
+        return ESP_ERR_INVALID_STATE;
+    return ota_check_release(update_available, latest, latest_len, url, url_len);
+}
+
 static bool quiesce_for_ota(void)
 {
     if (home_radio_on())
@@ -281,6 +288,7 @@ static void ota_worker(void *arg)
     bool auto_started = arg != NULL;
     (void)auto_started;
     phase = OTA_UPDATING;
+    ota_trigger_active = false;
     const char *url = cached_url;
     if (!url[0]) {
         snprintf(last_error, sizeof last_error, "missing_url");
@@ -312,7 +320,7 @@ static void ota_worker(void *arg)
 
 esp_err_t home_ota_start(bool auto_started)
 {
-    if (phase == OTA_UPDATING)
+    if (phase == OTA_CHECKING || phase == OTA_UPDATING || ota_trigger_active)
         return ESP_ERR_INVALID_STATE;
     if (!cached_available || !cached_url[0])
         return ESP_ERR_INVALID_STATE;
@@ -322,9 +330,41 @@ esp_err_t home_ota_start(bool auto_started)
     return ESP_OK;
 }
 
+static void ota_button_worker(void *unused)
+{
+    (void)unused;
+    bool available = false;
+    esp_err_t e = ota_check_release(&available, NULL, 0, NULL, 0);
+    if (e == ESP_OK && available) {
+        if (xTaskCreate(ota_worker, "home_ota", 12288, NULL, 5, NULL) != pdPASS) {
+            ota_trigger_active = false;
+            snprintf(last_error, sizeof last_error, "task_create_failed");
+            phase = OTA_FAILED;
+        }
+        vTaskDelete(NULL);
+        return;
+    }
+    ota_trigger_active = false;
+    vTaskDelete(NULL);
+}
+
+esp_err_t home_ota_update_now(void)
+{
+    if ((phase != OTA_IDLE && phase != OTA_FAILED) || ota_trigger_active)
+        return ESP_ERR_INVALID_STATE;
+    ota_trigger_active = true;
+    phase = OTA_CHECKING;
+    if (xTaskCreate(ota_button_worker, "ota_button", 8192, NULL, 5, NULL) != pdPASS) {
+        ota_trigger_active = false;
+        phase = OTA_IDLE;
+        return ESP_ERR_NO_MEM;
+    }
+    return ESP_OK;
+}
+
 void home_ota_auto_tick(void)
 {
-    if (phase != OTA_IDLE)
+    if (phase != OTA_IDLE || ota_trigger_active)
         return;
     qurantrix_settings_t s;
     qurantrix_settings_get(&s);

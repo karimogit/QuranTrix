@@ -514,7 +514,7 @@ static void control_task(void *unused)
             off_at = 0;
     while (true) {
         /* Once a second. Nothing here is urgent: reconnection waits fifteen to thirty seconds
-         * anyway, and the setup access point opens for five minutes. */
+         * anyway, and setup mode keeps its access point open until it is closed. */
         vTaskDelay(pdMS_TO_TICKS(1000));
         int64_t mono = esp_timer_get_time();
         home_power_state_t pw;
@@ -529,7 +529,7 @@ static void control_task(void *unused)
             radio_at = 0;
         bool online = home_runtime.online, pending = home_runtime.wifi_pending;
         bool has_ssid = home_runtime.secrets.ssid[0] != 0;
-        bool want_ap = mono < home_runtime.pair_until;
+        bool want_ap = home_runtime.setup;
         int64_t reconnect_at = next_connect;
         home_radio_in_t in = {
             .breath = home_runtime.config.power_mode == HOME_POWER_BREATH,
