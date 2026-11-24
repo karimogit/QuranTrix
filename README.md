@@ -67,7 +67,7 @@ An NFC tap checks off the prayer that is current. A chime plays, the paper refre
 - **Radio:** the line reads Quran with ON or OFF. The default station is Qurango Tarateel (`https://qurango.net/radio/tarateel`).
 - **Blocks:** prayers, Ramadan, sun times, the holiday, the dua, the 99 Names, and the radio can each be turned off. The top bar stays.
 - **Borders:** a frame can sit around the prayers, the Ramadan count, sun times, the holiday, the dua, the 99 Names, or the radio.
-- **Language:** the page and the paper are in English. A saved language from an earlier version is read as English. The pairing page is titled Setup, and the page is titled Settings once the phone is paired. The page shows v1.0 at the bottom. The paper shows v1.0 in the pairing bar, next to the word Setup.
+- **Language:** the page and the paper are in English. A saved language from an earlier version is read as English. The pairing page is titled Setup, and the page is titled Settings once the phone is paired. The page shows v1.0.1 at the bottom. The paper shows v1.0.1 in the pairing bar, next to the word Setup.
 - **Themes:** Classic, Sunset, Ocean, Marquee, Chorus, Brass, Spotlight, or custom pigments. On **NOTE4C**, the panel has four pigments: black, paper, yellow, and red. On **NOTE4**, themes use black and paper only. Dark mode swaps paper and black.
 
 ## Build
@@ -89,4 +89,4 @@ On home Wi‑Fi, open **Settings → Firmware**. **Check for updates** asks GitH
 
 ## License
 
-Version 1.0. MIT. See [LICENSE](LICENSE). Font notices for the type shipped in the firmware are in `licenses/`.
+Version 1.0.1. MIT. See [LICENSE](LICENSE). Font notices for the type shipped in the firmware are in `licenses/`.
